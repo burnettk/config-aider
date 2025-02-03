@@ -176,7 +176,7 @@ Examples:
 
     if args.init:
         create_example_configs(config_manager)
-        print("Created example configurations in ~/.config/config-aider/")
+        print("Created example configurations in ~/.config/config-aider/. Add your own yml files there.")
         return
         
     if args.alias:
