@@ -59,11 +59,11 @@ detect-urls: false
 """,
         },
         {
-            "alias": "claude-3-sonnet",
+            "alias": "d",
             "config": """
-model: claude-3-sonnet-20240229
-edit-format: diff
+model: deepseek/deepseek-chat
 auto-commits: false
+detect-urls: false
 """,
         },
     ]
@@ -73,6 +73,18 @@ auto-commits: false
         config_path = os.path.join(config_manager.config_dir, filename)
         with open(config_path, "w") as f:
             f.write(example["config"])
+
+    # Create symlinks for aliases with slashes
+    symlinks = [
+        ("gemini-experimental", "g"),
+        ("claude-3-sonnet", "c3"),
+    ]
+
+    for target, link_name in symlinks:
+        target_path = os.path.join(config_manager.config_dir, target + ".conf.yml")
+        link_path = os.path.join(config_manager.config_dir, link_name + ".conf.yml")
+        if os.path.exists(target_path) and not os.path.exists(link_path):
+            os.symlink(target_path, link_path)
 
 
 def main():

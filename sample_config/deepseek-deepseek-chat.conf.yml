@@ -1,0 +1,2 @@
+model: deepseek/deepseek-chat
+detect-urls: false
