@@ -8,6 +8,28 @@ The `ca` command is a helper utility for running [Aider](https://aider.chat) wit
 
 Or see [doc/install.md](install docs) if you like safety.
 
+## Quick Start
+
+1. First initialize the config directory with example configurations:
+```bash
+ca --init
+```
+
+2. Copy your favorite configuration files into the config directory (~/.config/config-aider/). For example, if you have a configuration file called sota.yml:
+```bash
+cp sota.yml ~/.config/config-aider/
+```
+
+3. Create an alias for your configuration. For example, to create an alias 's' for 'sota':
+```bash
+ca --alias s sota
+```
+
+4. Run aider using your alias:
+```bash
+ca s file1.py file2.py
+```
+
 ## Basic Usage
 
 Run Aider with a specific configuration alias:
