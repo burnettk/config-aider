@@ -34,8 +34,8 @@ class ConfigManager:
             print(f"Expected to find config file at: {config_path}")
             sys.exit(1)
 
-        cmd = ["aider", "--config", config_path]
-        cmd.extend(extra_args)
+        config_name = os.path.basename(config_path)
+        cmd = ["aider", "--config", config_name] + extra_args
 
         try:
             subprocess.run(cmd)
@@ -51,27 +51,26 @@ def create_example_configs(config_manager: ConfigManager) -> None:
     """Create example configurations in YAML format"""
     example_configs = [
         {
-            "alias": "g",
+            "alias": "gemini-experimental",
             "config": """
-model: gemini-pro
-edit-format: simple
-auto-commit: true
+model: gemini/gemini-exp-1206
+auto-commits: false
+detect-urls: false
 """,
         },
         {
-            "alias": "c3",
+            "alias": "claude-3-sonnet",
             "config": """
 model: claude-3-sonnet-20240229
 edit-format: diff
-auto-commit: false
+auto-commits: false
 """,
         },
     ]
 
     for example in example_configs:
-        config_path = os.path.join(
-            config_manager.config_dir, f"{example['alias']}.conf.yml"
-        )
+        filename = example["alias"].replace("/", "-") + ".conf.yml"
+        config_path = os.path.join(config_manager.config_dir, filename)
         with open(config_path, "w") as f:
             f.write(example["config"])
 
@@ -111,7 +110,8 @@ Examples:
 
     if args.list:
         configs = config_manager.list_configs()
-        for alias, config_path in configs.items():
+        for filename, config_path in configs.items():
+            alias = filename.replace(".conf.yml", "")
             print(f"{alias}: {config_path}")
 
     if not args.alias:
