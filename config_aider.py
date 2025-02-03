@@ -66,8 +66,7 @@ class ConfigManager:
             print(f"Expected to find config file at: {config_path}")
             sys.exit(1)
 
-        config_name = os.path.basename(config_path)
-        cmd = ["aider", "--config", config_name] + extra_args
+        cmd = ["aider", "--config", config_path] + extra_args
 
         try:
             subprocess.run(cmd)
