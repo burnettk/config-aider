@@ -48,10 +48,11 @@ class ConfigManager:
         
         # List all config files with their aliases
         for config_file in Path(self.config_dir).glob("*.conf.yml"):
-            config_name = config_file.stem
+            # Remove .conf from the stem to match alias targets
+            config_name = config_file.stem.replace('.conf', '')
             alias_list = config_to_aliases.get(config_name, [])
-            alias_str = f" ({', '.join(alias_list)})" if alias_list else ""
-            configs[config_name] = (str(config_file), alias_str)
+            alias_str = f" (aliases: {', '.join(alias_list)})" if alias_list else ""
+            configs[config_name] = f"{str(config_file)}{alias_str}"
                 
         return configs
 
@@ -193,8 +194,8 @@ Examples:
 
     if args.list:
         configs = config_manager.list_configs()
-        for config_name, (config_path, aliases) in configs.items():
-            print(f"{config_name}{aliases}: {config_path}")
+        for config_name, config_info in configs.items():
+            print(f"{config_name}: {config_info}")
         return
 
     if not args.alias:
