@@ -39,16 +39,19 @@ class ConfigManager:
         configs = {}
         aliases = self._get_aliases()
         
-        # First add all config files
-        for config_file in Path(self.config_dir).glob("*.conf.yml"):
-            alias = config_file.stem
-            configs[alias] = str(config_file)
-            
-        # Then add aliases pointing to existing configs
+        # Create a mapping of config names to their aliases
+        config_to_aliases = {}
         for alias, target in aliases.items():
-            target_path = os.path.join(self.config_dir, f"{target}.conf.yml")
-            if os.path.exists(target_path):
-                configs[alias] = target_path
+            if target not in config_to_aliases:
+                config_to_aliases[target] = []
+            config_to_aliases[target].append(alias)
+        
+        # List all config files with their aliases
+        for config_file in Path(self.config_dir).glob("*.conf.yml"):
+            config_name = config_file.stem
+            alias_list = config_to_aliases.get(config_name, [])
+            alias_str = f" ({', '.join(alias_list)})" if alias_list else ""
+            configs[config_name] = (str(config_file), alias_str)
                 
         return configs
 
@@ -139,6 +142,12 @@ Examples:
   %(prog)s c3 file1.py file2.py  # Run with 'c3' config and additional files
         """,
     )
+    parser.add_argument(
+        "--add-alias", "-a", 
+        nargs=2,
+        metavar=("ALIAS", "TARGET"),
+        help="Add a new alias for a configuration"
+    )
     parser.add_argument("alias", nargs="?", help="Configuration alias to use")
     parser.add_argument(
         "--list", "-l", action="store_true", help="List available configurations"
@@ -159,12 +168,34 @@ Examples:
         create_example_configs(config_manager)
         print("Created example configurations in ~/.config/aider-profiles/")
         return
+        
+    if args.add_alias:
+        alias, target = args.add_alias
+        aliases_path = os.path.join(config_manager.config_dir, "aliases.txt")
+        
+        # Check if alias already exists
+        existing_aliases = config_manager._get_aliases()
+        if alias in existing_aliases:
+            print(f"Error: Alias '{alias}' already exists")
+            sys.exit(1)
+            
+        # Check if target config exists
+        target_path = os.path.join(config_manager.config_dir, f"{target}.conf.yml")
+        if not os.path.exists(target_path):
+            print(f"Error: Target configuration '{target}' does not exist")
+            sys.exit(1)
+            
+        # Add the new alias
+        with open(aliases_path, "a") as f:
+            f.write(f"\n{alias}:{target}\n")
+        print(f"Added alias: {alias} -> {target}")
+        return
 
     if args.list:
         configs = config_manager.list_configs()
-        for filename, config_path in configs.items():
-            alias = filename.replace(".conf.yml", "")
-            print(f"{alias}: {config_path}")
+        for config_name, (config_path, aliases) in configs.items():
+            print(f"{config_name}{aliases}: {config_path}")
+        return
 
     if not args.alias:
         parser.print_help()
