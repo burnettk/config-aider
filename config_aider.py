@@ -143,12 +143,12 @@ Examples:
         """,
     )
     parser.add_argument(
-        "--add-alias", "-a", 
+        "--alias", "-a", 
         nargs=2,
         metavar=("ALIAS", "TARGET"),
         help="Add a new alias for a configuration"
     )
-    parser.add_argument("alias", nargs="?", help="Configuration alias to use")
+    parser.add_argument("run_alias", nargs="?", help="Configuration alias to use")
     parser.add_argument(
         "--list", "-l", action="store_true", help="List available configurations"
     )
@@ -169,8 +169,8 @@ Examples:
         print("Created example configurations in ~/.config/aider-profiles/")
         return
         
-    if args.add_alias:
-        alias, target = args.add_alias
+    if args.alias:
+        alias, target = args.alias
         aliases_path = os.path.join(config_manager.config_dir, "aliases.txt")
         
         # Check if alias already exists
@@ -197,11 +197,10 @@ Examples:
             print(f"{config_name}: {config_info}")
         return
 
-    if not args.alias:
+    if args.run_alias:
+        config_manager.run_with_config(args.run_alias, args.extra_args)
+    elif not any([args.alias, args.list, args.init]):
         parser.print_help()
-        return
-
-    config_manager.run_with_config(args.alias, args.extra_args)
 
 
 if __name__ == "__main__":
