@@ -15,7 +15,7 @@ Or see [install docs](doc/install.md) if you like safety.
 ca --init
 ```
 
-2. Copy your favorite configuration files into the config directory (~/.config/config-aider/). For example, if you have a configuration file called sota.yml:
+2. Copy your favorite aider configuration files into the config directory (~/.config/config-aider/). For example, if you have a configuration file called sota.yml:
 ```bash
 cp sota.yml ~/.config/config-aider/
 ```
