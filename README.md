@@ -1,32 +1,16 @@
-# Aider Configuration Manager (ca)
+# Config Aider (ca)
 
-The `ca` command is a helper utility for managing and running [Aider](https://aider.chat) with different configurations.
+The `ca` command is a helper utility for running [Aider](https://aider.chat) with your favorite configurations.
 
-## Installation
-
-### Safe install
-
-1. Clone this repository
-2. Read `config_aider.py`
-3. Make `config_aider.py` executable:
-
-   ```bash
-   chmod +x config_aider.py
-   ```
-
-4. Create a symlink to make it available as `ca`:
-
-   ```bash
-   ln -s $(pwd)/config_aider.py /usr/local/bin/ca # might require sudo
-   ```
-
-### Baller install
+## Install
 
 `curl -sSf https://raw.githubusercontent.com/burnettk/config-aider/main/install.sh | bash`
 
+Or see [doc/install.md](install docs) if you like safety.
+
 ## Basic Usage
 
-Run Aider with a specific configuration:
+Run Aider with a specific configuration alias:
 
 ```bash
 ca <alias> [files...]
@@ -34,10 +18,10 @@ ca <alias> [files...]
 
 Common commands:
 
-- `ca --init` - Create example configurations
+- `ca --init` - Create example configurations. Start here.
 - `ca --list` - List available configurations
-- `ca --alias <new-alias> <config>` - Create a new alias for a configuration
-- `ca <alias> file1.py file2.py` - Run Aider with specified config and files
+- `ca --alias <new-alias> <config-name>` - Create a new alias for a configuration
+- `ca <alias> file1.py file2.py` - Run Aider with specified config alias and files
 
 ## Configuration Management
 
