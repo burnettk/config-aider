@@ -180,7 +180,7 @@ Examples:
             sys.exit(1)
             
         # Check if target config exists
-        target_path = os.path.join(config_manager.config_dir, f"{target}.conf.yml")
+        target_path = os.path.join(config_manager.config_dir, f"{target}.yml")
         if not os.path.exists(target_path):
             print(f"Error: Target configuration '{target}' does not exist")
             sys.exit(1)
