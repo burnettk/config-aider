@@ -1,5 +1,6 @@
+# Aider configuration aliases
+# Format: alias:config-name
 
-# Example aliases:
-# gemini-experimental: g
-# claude-3-sonnet: c3
-# deepseek-deepseek-chat: d
+g:gemini-experimental
+c3:claude-3-sonnet
+d:deepseek-deepseek-chat

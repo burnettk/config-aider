@@ -17,16 +17,48 @@ class ConfigManager:
         """Create config directory if it doesn't exist"""
         os.makedirs(self.config_dir, exist_ok=True)
 
+    def _get_aliases(self) -> Dict[str, str]:
+        """Read aliases from aliases.txt file"""
+        aliases_path = os.path.join(self.config_dir, "aliases.txt")
+        if not os.path.exists(aliases_path):
+            return {}
+
+        aliases = {}
+        with open(aliases_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    parts = line.split(":")
+                    if len(parts) == 2:
+                        alias, target = parts
+                        aliases[alias.strip()] = target.strip()
+        return aliases
+
     def list_configs(self) -> Dict[str, str]:
         """List all available configurations and their file paths"""
         configs = {}
+        aliases = self._get_aliases()
+        
+        # First add all config files
         for config_file in Path(self.config_dir).glob("*.conf.yml"):
             alias = config_file.stem
             configs[alias] = str(config_file)
+            
+        # Then add aliases pointing to existing configs
+        for alias, target in aliases.items():
+            target_path = os.path.join(self.config_dir, f"{target}.conf.yml")
+            if os.path.exists(target_path):
+                configs[alias] = target_path
+                
         return configs
 
     def run_with_config(self, alias: str, extra_args: list) -> None:
-        """Run aider with the specified configuration file"""
+        """Run aider with the specified configuration file or alias"""
+        # First check if it's an alias
+        aliases = self._get_aliases()
+        if alias in aliases:
+            alias = aliases[alias]
+            
         config_path = os.path.join(self.config_dir, f"{alias}.conf.yml")
 
         if not os.path.exists(config_path):
@@ -59,11 +91,18 @@ detect-urls: false
 """,
         },
         {
-            "alias": "d",
+            "alias": "deepseek-deepseek-chat",
             "config": """
 model: deepseek/deepseek-chat
 auto-commits: false
 detect-urls: false
+""",
+        },
+        {
+            "alias": "claude-3-sonnet",
+            "config": """
+model: claude-3-sonnet-20240229
+auto-commits: false
 """,
         },
     ]
@@ -74,17 +113,19 @@ detect-urls: false
         with open(config_path, "w") as f:
             f.write(example["config"])
 
-    # Create symlinks for aliases with slashes
-    symlinks = [
-        ("gemini-experimental", "g"),
-        ("claude-3-sonnet", "c3"),
-    ]
+    # Create default aliases
+    aliases_path = os.path.join(config_manager.config_dir, "aliases.txt")
+    if not os.path.exists(aliases_path):
+        default_aliases = """\
+# Aider configuration aliases
+# Format: alias:config-name
 
-    for target, link_name in symlinks:
-        target_path = os.path.join(config_manager.config_dir, target + ".conf.yml")
-        link_path = os.path.join(config_manager.config_dir, link_name + ".conf.yml")
-        if os.path.exists(target_path) and not os.path.exists(link_path):
-            os.symlink(target_path, link_path)
+g:gemini-experimental
+c3:claude-3-sonnet
+d:deepseek-deepseek-chat
+"""
+        with open(aliases_path, "w") as f:
+            f.write(default_aliases)
 
 
 def main():
