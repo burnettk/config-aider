@@ -9,7 +9,7 @@ from typing import Dict
 
 
 class ConfigManager:
-    def __init__(self, config_dir: str = "~/.config/aider-profiles"):
+    def __init__(self, config_dir: str = "~/.config/config-aider"):
         self.config_dir = os.path.expanduser(config_dir)
         self._ensure_config_dir()
 
@@ -176,7 +176,7 @@ Examples:
 
     if args.init:
         create_example_configs(config_manager)
-        print("Created example configurations in ~/.config/aider-profiles/")
+        print("Created example configurations in ~/.config/config-aider/")
         return
         
     if args.alias:
