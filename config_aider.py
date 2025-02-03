@@ -90,10 +90,10 @@ Examples:
     )
     parser.add_argument("alias", nargs="?", help="Configuration alias to use")
     parser.add_argument(
-        "--list", action="store_true", help="List available configurations"
+        "--list", "-l", action="store_true", help="List available configurations"
     )
     parser.add_argument(
-        "--init", action="store_true", help="Create example configurations"
+        "--init", "-i", action="store_true", help="Create example configurations"
     )
     parser.add_argument(
         "extra_args",
