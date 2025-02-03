@@ -161,7 +161,16 @@ Examples:
         nargs=argparse.REMAINDER,
         help="Additional arguments to pass to aider",
     )
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
+    if unknown_args and not args.run_alias:
+        # If there are unknown args and no run_alias specified, show help
+        parser.print_help()
+        print(f"\nError: Unrecognized arguments: {' '.join(unknown_args)}")
+        sys.exit(1)
+    
+    # Add unknown args to extra_args if we have a run_alias
+    if args.run_alias:
+        args.extra_args = unknown_args + args.extra_args
 
     config_manager = ConfigManager()
 
