@@ -6,7 +6,7 @@ The `ca` command is a helper utility for running [Aider](https://aider.chat) wit
 
 `curl -sSf https://raw.githubusercontent.com/burnettk/config-aider/main/install.sh | bash`
 
-Or see [doc/install.md](install docs) if you like safety.
+Or see [install docs](doc/install.md) if you like safety.
 
 ## Quick Start
 
