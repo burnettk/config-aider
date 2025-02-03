@@ -47,9 +47,8 @@ class ConfigManager:
             config_to_aliases[target].append(alias)
         
         # List all config files with their aliases
-        for config_file in Path(self.config_dir).glob("*.conf.yml"):
-            # Remove .conf from the stem to match alias targets
-            config_name = config_file.stem.replace('.conf', '')
+        for config_file in Path(self.config_dir).glob("*.yml"):
+            config_name = config_file.stem
             alias_list = config_to_aliases.get(config_name, [])
             alias_str = f" (aliases: {', '.join(alias_list)})" if alias_list else ""
             configs[config_name] = f"{str(config_file)}{alias_str}"
@@ -63,7 +62,7 @@ class ConfigManager:
         if alias in aliases:
             alias = aliases[alias]
             
-        config_path = os.path.join(self.config_dir, f"{alias}.conf.yml")
+        config_path = os.path.join(self.config_dir, f"{alias}.yml")
 
         if not os.path.exists(config_path):
             print(f"Error: No configuration found for alias '{alias}'")
@@ -111,7 +110,7 @@ auto-commits: false
     ]
 
     for example in example_configs:
-        filename = example["alias"].replace("/", "-") + ".conf.yml"
+        filename = example["alias"].replace("/", "-") + ".yml"
         config_path = os.path.join(config_manager.config_dir, filename)
         with open(config_path, "w") as f:
             f.write(example["config"])
