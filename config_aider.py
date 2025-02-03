@@ -138,8 +138,9 @@ def main():
 Examples:
   %(prog)s --init                 # Create example configurations
   %(prog)s --list                 # List available configurations
-  %(prog)s g                      # Run aider with 'g' configuration
-  %(prog)s c3 file1.py file2.py  # Run with 'c3' config and additional files
+  %(prog)s --alias l llama3b      # Add 'myalias' for 'g' configuration
+  %(prog)s l                      # Run aider with 'llama3b' config via the alias just added
+  %(prog)s c3 file1.py file2.py   # Run with 'c3' config and additional files. Any additional args are passed through to aider.
         """,
     )
     parser.add_argument(
