@@ -53,3 +53,4 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
 fi
 
 echo "Installation complete! You can now use '$COMMAND_NAME' command"
+echo "Run 'ca --init' to create example configurations."
