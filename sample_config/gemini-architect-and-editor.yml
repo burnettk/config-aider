@@ -1,4 +1,4 @@
-
+architect: true
+editor-model: gemini/gemini-exp-1206
 model: gemini/gemini-exp-1206
-auto-commits: false
-detect-urls: false
+weak-model: gemini/gemini-2.0-flash-exp
