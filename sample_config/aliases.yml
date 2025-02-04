@@ -1,6 +1,6 @@
 # Aider configuration aliases
 # Format: alias:config-name
 
-g:gemini-experimental
+g:gemini-architect-and-editor
 c3:claude-3-sonnet
 d:deepseek-deepseek-chat
