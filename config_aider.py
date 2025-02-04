@@ -153,6 +153,11 @@ Examples:
         action="store_true",
         help="Uninstall config-aider and remove all related files",
     )
+    parser.add_argument(
+        "--update-ca",
+        action="store_true",
+        help="Update config-aider by pulling latest changes from git",
+    )
     args, unknown_args = parser.parse_known_args()
     if unknown_args and not args.run_alias:
         # If there are unknown args and no run_alias specified, show help
@@ -197,6 +202,27 @@ Examples:
         configs = config_manager.list_configs()
         for config_name, config_info in configs.items():
             print(f"{config_name}: {config_info}")
+        return
+
+    if args.update_ca:
+        # Get the path to this script via the symlink
+        script_path = os.path.realpath(__file__)
+        # Get the source directory
+        src_dir = os.path.dirname(script_path)
+        
+        # Check if this is a git repository
+        if not os.path.exists(os.path.join(src_dir, ".git")):
+            print("Error: Not a git repository - cannot update")
+            sys.exit(1)
+            
+        # Run git pull
+        try:
+            print(f"Updating config-aider in {src_dir}")
+            subprocess.run(["git", "-C", src_dir, "pull"], check=True)
+            print("Update complete")
+        except subprocess.CalledProcessError as e:
+            print(f"Error: Failed to update: {e}")
+            sys.exit(1)
         return
 
     if args.uninstall_config_aider:
