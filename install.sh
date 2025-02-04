@@ -1,4 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+function error_handler() {
+  >&2 echo "Exited with BAD EXIT CODE '${2}' in ${0} script at line: ${1}."
+  exit "$2"
+}
+trap 'error_handler ${LINENO} $?' ERR
+set -o errtrace -o errexit -o nounset -o pipefail
 
 # Target installation directory
 INSTALL_DIR="$HOME/.local/bin"
@@ -17,51 +24,23 @@ if command -v "$COMMAND_NAME" >/dev/null 2>&1; then
   fi
 fi
 
-# Determine script source
-if [ -f "./$SCRIPT_NAME" ]; then
-  # Use local file if available
-  SCRIPT_SOURCE="./$SCRIPT_NAME"
-  echo "Found local $SCRIPT_NAME, using it for installation"
+script_dir="$(
+  cd -- "$(dirname "$0")" >/dev/null 2>&1
+  pwd -P
+)"
+
+if [[ -n "$script_dir" ]] && [[ -d "${script_dir}/sample_config" ]]; then
+  source_dir="$script_dir"
 else
-  # Download from GitHub if local file not found
-  SCRIPT_SOURCE=$(mktemp)
-  echo "Downloading $SCRIPT_NAME from GitHub..."
-  curl -sSf https://raw.githubusercontent.com/burnettk/config-aider/refs/heads/main/config_aider.py -o "$SCRIPT_SOURCE" || {
-    echo "Error: Failed to download script"
-    rm -f "$SCRIPT_SOURCE"
-    exit 1
-  }
+  # sample_config not found - clone to ~/.local/share/config-aider
+  LOCAL_SHARE="$HOME/.local/share/config-aider"
+  echo "sample_config directory not found - cloning to $LOCAL_SHARE"
+  mkdir -p "$LOCAL_SHARE"
+  git clone https://github.com/burnettk/config-aider.git "$LOCAL_SHARE"
+  source_dir="$LOCAL_SHARE"
 fi
 
-# If installing from local source, create symlink to source directory
-if [ "$SCRIPT_SOURCE" == "./$SCRIPT_NAME" ]; then
-  # Get absolute path to source directory
-  SOURCE_DIR=$(dirname "$(readlink -f "$SCRIPT_SOURCE")")
-
-  # Check if sample_config directory exists
-  if [ ! -d "$SOURCE_DIR/sample_config" ]; then
-    # sample_config not found - clone to ~/.local/share/config-aider
-    LOCAL_SHARE="$HOME/.local/share/config-aider"
-    echo "sample_config directory not found - cloning to $LOCAL_SHARE"
-    mkdir -p "$LOCAL_SHARE"
-    git clone https://github.com/burnettk/config-aider.git "$LOCAL_SHARE"
-    SOURCE_DIR="$LOCAL_SHARE"
-  fi
-
-  # Create symlink to the script
-  ln -sf "$SOURCE_DIR/$SCRIPT_NAME" "$INSTALL_DIR/$COMMAND_NAME"
-  chmod +x "$INSTALL_DIR/$COMMAND_NAME"
-else
-  # Install the script directly if downloaded
-  install -m 755 "$SCRIPT_SOURCE" "$INSTALL_DIR/$SCRIPT_NAME"
-  # Create symlink
-  ln -sf "$INSTALL_DIR/$SCRIPT_NAME" "$INSTALL_DIR/$COMMAND_NAME"
-fi
-
-# Clean up temp file if we downloaded
-if [ "$SCRIPT_SOURCE" != "./$SCRIPT_NAME" ]; then
-  rm -f "$SCRIPT_SOURCE"
-fi
+ln -sf "$source_dir/$SCRIPT_NAME" "$INSTALL_DIR/$COMMAND_NAME"
 
 # Add to PATH if not already there
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
