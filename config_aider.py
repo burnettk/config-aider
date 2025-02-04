@@ -107,6 +107,15 @@ model: claude-3-sonnet-20240229
 auto-commits: false
 """,
         },
+        {
+            "alias": "sota",
+            "config": """
+model: openrouter/deepseek/deepseek-r1
+editor-model: openrouter/anthropic/claude-3.5-sonnet
+auto-commits: false
+detect-urls: false
+""",
+        },
     ]
 
     for example in example_configs:

@@ -4,9 +4,10 @@ This directory contains example configuration files for [Aider](https://aider.ch
 
 ## Included Configurations
 
-- `gemini-experimental.conf.yml`: Configuration for Google's Gemini Experimental model
-- `claude-3-sonnet.conf.yml`: Configuration for Anthropic's Claude 3 Sonnet model
-- `deepseek-deepseek-chat.conf.yml`: Configuration for Deepseek Chat model
+- `gemini-experimental.yml`: Configuration for Google's Gemini Experimental model
+- `claude-3-sonnet.yml`: Configuration for Anthropic's Claude 3 Sonnet model
+- `deepseek-deepseek-chat.yml`: Configuration for Deepseek Chat model
+- `sota.yml`: State-of-the-art configuration combining Deepseek R1 with Claude 3.5 Sonnet for editor
 
 ## Configuration File Format
 
