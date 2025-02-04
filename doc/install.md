@@ -4,18 +4,16 @@
 
 1. Clone this repository
 2. Read `config_aider.py`
-3. Make `config_aider.py` executable:
+3. Run the install script:
 
    ```bash
-   chmod +x config_aider.py
+   ./install.sh
    ```
 
-4. Create a symlink to make it available as `ca`:
-
-   ```bash
-   # might require sudo
-   ln -s $(pwd)/config_aider.py /usr/local/bin/ca
-   ```
+   This will:
+   - Create a symlink to the source directory
+   - Create a wrapper script in ~/.local/bin/ca
+   - Add ~/.local/bin to your PATH if needed
 
 ## Baller install
 

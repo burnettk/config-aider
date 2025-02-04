@@ -4,6 +4,7 @@ import os
 import sys
 import argparse
 import subprocess
+import shutil
 from pathlib import Path
 from typing import Dict
 
@@ -81,62 +82,43 @@ class ConfigManager:
             sys.exit(1)
 
 
+def _get_sample_config_dir() -> str:
+    """Get the path to the sample config directory"""
+    # Try to find the source directory via symlink
+    try:
+        # Get the path to this script
+        script_path = os.path.realpath(__file__)
+        # Look for the source directory symlink
+        install_dir = os.path.dirname(script_path)
+        src_link = os.path.join(install_dir, "config-aider-src")
+        if os.path.islink(src_link):
+            src_dir = os.path.realpath(src_link)
+            sample_dir = os.path.join(src_dir, "sample_config")
+            if os.path.isdir(sample_dir):
+                return sample_dir
+    except Exception:
+        pass
+    return None
+
 def create_example_configs(config_manager: ConfigManager) -> None:
-    """Create example configurations in YAML format"""
-    example_configs = [
-        {
-            "alias": "gemini-experimental",
-            "config": """
-model: gemini/gemini-exp-1206
-auto-commits: false
-detect-urls: false
-""",
-        },
-        {
-            "alias": "deepseek-deepseek-chat",
-            "config": """
-model: deepseek/deepseek-chat
-auto-commits: false
-detect-urls: false
-""",
-        },
-        {
-            "alias": "claude-3-sonnet",
-            "config": """
-model: claude-3-sonnet-20240229
-auto-commits: false
-""",
-        },
-        {
-            "alias": "sota",
-            "config": """
-model: openrouter/deepseek/deepseek-r1
-editor-model: openrouter/anthropic/claude-3.5-sonnet
-auto-commits: false
-detect-urls: false
-""",
-        },
-    ]
+    """Create example configurations by copying from sample_config directory"""
+    sample_dir = _get_sample_config_dir()
+    if not sample_dir:
+        print("Error: Could not locate sample configurations directory")
+        sys.exit(1)
 
-    for example in example_configs:
-        filename = example["alias"].replace("/", "-") + ".yml"
-        config_path = os.path.join(config_manager.config_dir, filename)
-        with open(config_path, "w") as f:
-            f.write(example["config"])
+    # Copy all .yml files from sample_config
+    for config_file in Path(sample_dir).glob("*.yml"):
+        dest_path = os.path.join(config_manager.config_dir, config_file.name)
+        shutil.copy(config_file, dest_path)
+        print(f"Created {dest_path}")
 
-    # Create default aliases
-    aliases_path = os.path.join(config_manager.config_dir, "aliases.txt")
-    if not os.path.exists(aliases_path):
-        default_aliases = """\
-# Aider configuration aliases
-# Format: alias:config-name
-
-g:gemini-experimental
-c3:claude-3-sonnet
-d:deepseek-deepseek-chat
-"""
-        with open(aliases_path, "w") as f:
-            f.write(default_aliases)
+    # Copy aliases.txt if it exists
+    aliases_src = os.path.join(sample_dir, "aliases.txt")
+    aliases_dest = os.path.join(config_manager.config_dir, "aliases.txt")
+    if os.path.exists(aliases_src):
+        shutil.copy(aliases_src, aliases_dest)
+        print(f"Created {aliases_dest}")
 
 
 def main():

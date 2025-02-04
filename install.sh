@@ -33,11 +33,24 @@ else
     }
 fi
 
-# Install the script
-install -m 755 "$SCRIPT_SOURCE" "$INSTALL_DIR/$SCRIPT_NAME"
-
-# Create symlink
-ln -sf "$INSTALL_DIR/$SCRIPT_NAME" "$INSTALL_DIR/$COMMAND_NAME"
+# If installing from local source, create symlink to source directory
+if [ "$SCRIPT_SOURCE" == "./$SCRIPT_NAME" ]; then
+    # Get absolute path to source directory
+    SOURCE_DIR=$(dirname "$(readlink -f "$SCRIPT_SOURCE")")
+    # Create symlink to source directory
+    ln -sf "$SOURCE_DIR" "$INSTALL_DIR/config-aider-src"
+    # Create wrapper script
+    cat <<EOF > "$INSTALL_DIR/$COMMAND_NAME"
+#!/bin/bash
+"$SOURCE_DIR/$SCRIPT_NAME" "\$@"
+EOF
+    chmod +x "$INSTALL_DIR/$COMMAND_NAME"
+else
+    # Install the script directly if downloaded
+    install -m 755 "$SCRIPT_SOURCE" "$INSTALL_DIR/$SCRIPT_NAME"
+    # Create symlink
+    ln -sf "$INSTALL_DIR/$SCRIPT_NAME" "$INSTALL_DIR/$COMMAND_NAME"
+fi
 
 # Clean up temp file if we downloaded
 if [ "$SCRIPT_SOURCE" != "./$SCRIPT_NAME" ]; then
