@@ -13,7 +13,8 @@
 4. Create a symlink to make it available as `ca`:
 
    ```bash
-   ln -s $(pwd)/config_aider.py /usr/local/bin/ca # might require sudo
+   # might require sudo
+   ln -s $(pwd)/config_aider.py /usr/local/bin/ca
    ```
 
 ## Baller install
