@@ -35,21 +35,23 @@ fi
 
 # If installing from local source, create symlink to source directory
 if [ "$SCRIPT_SOURCE" == "./$SCRIPT_NAME" ]; then
-  echo 1
   # Get absolute path to source directory
   SOURCE_DIR=$(dirname "$(readlink -f "$SCRIPT_SOURCE")")
-  # Create symlink to source directory
-  set -x
+
+  # Check if sample_config directory exists
+  if [ ! -d "$SOURCE_DIR/sample_config" ]; then
+    # sample_config not found - clone to ~/.local/share/config-aider
+    LOCAL_SHARE="$HOME/.local/share/config-aider"
+    echo "sample_config directory not found - cloning to $LOCAL_SHARE"
+    mkdir -p "$LOCAL_SHARE"
+    git clone https://github.com/burnettk/config-aider.git "$LOCAL_SHARE"
+    SOURCE_DIR="$LOCAL_SHARE"
+  fi
+
+  # Create symlink to the script
   ln -sf "$SOURCE_DIR/$SCRIPT_NAME" "$INSTALL_DIR/$COMMAND_NAME"
-  #   ln -sf "$SOURCE_DIR" "$INSTALL_DIR/config-aider-src"
-  #   # Create wrapper script
-  #   cat <<EOF >"$INSTALL_DIR/$COMMAND_NAME"
-  # #!/bin/bash
-  # "$SOURCE_DIR/$SCRIPT_NAME" "\$@"
-  # EOF
   chmod +x "$INSTALL_DIR/$COMMAND_NAME"
 else
-  echo 2
   # Install the script directly if downloaded
   install -m 755 "$SCRIPT_SOURCE" "$INSTALL_DIR/$SCRIPT_NAME"
   # Create symlink
