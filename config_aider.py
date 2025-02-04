@@ -148,6 +148,11 @@ Examples:
         nargs=argparse.REMAINDER,
         help="Additional arguments to pass to aider",
     )
+    parser.add_argument(
+        "--uninstall-config-aider",
+        action="store_true",
+        help="Uninstall config-aider and remove all related files",
+    )
     args, unknown_args = parser.parse_known_args()
     if unknown_args and not args.run_alias:
         # If there are unknown args and no run_alias specified, show help
@@ -194,9 +199,32 @@ Examples:
             print(f"{config_name}: {config_info}")
         return
 
+    if args.uninstall_config_aider:
+        # Remove ~/.local/share/config-aider
+        share_dir = os.path.expanduser("~/.local/share/config-aider")
+        if os.path.exists(share_dir):
+            print(f"Removing {share_dir}")
+            shutil.rmtree(share_dir)
+        
+        # Move ~/.config/config-aider to /tmp
+        config_dir = os.path.expanduser("~/.config/config-aider")
+        if os.path.exists(config_dir):
+            tmp_dir = f"/tmp/config-aider-{os.getpid()}"
+            print(f"Moving {config_dir} to {tmp_dir}")
+            shutil.move(config_dir, tmp_dir)
+        
+        # Remove the ca symlink
+        ca_path = shutil.which("ca")
+        if ca_path:
+            print(f"Removing {ca_path}")
+            os.unlink(ca_path)
+        
+        print("Uninstall complete")
+        return
+
     if args.run_alias:
         config_manager.run_with_config(args.run_alias, args.extra_args)
-    elif not any([args.alias, args.list, args.init]):
+    elif not any([args.alias, args.list, args.init, args.uninstall_config_aider]):
         parser.print_help()
 
 
