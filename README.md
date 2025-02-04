@@ -36,7 +36,7 @@ ca <alias> [files...]
 
 ## Usage
 
-```bash
+```text
 usage: config_aider.py [-h] [--alias ALIAS TARGET] [--list] [--init] [run_alias] ...
 
 Aider configuration manager
