@@ -38,12 +38,24 @@ Run Aider with a specific configuration alias:
 ca <alias> [files...]
 ```
 
-Common commands:
+## Usage
 
-- `ca --init` - Create example configurations. Start here.
-- `ca --list` - List available configurations
-- `ca --alias <new-alias> <config-name>` - Create a new alias for a configuration
-- `ca <alias> file1.py file2.py` - Run Aider with specified config alias and files
+```bash
+usage: config_aider.py [-h] [--alias ALIAS TARGET] [--list] [--init] [run_alias] ...
+
+Aider configuration manager
+
+positional arguments:
+  run_alias             Configuration alias to use
+  extra_args            Additional arguments to pass to aider
+
+options:
+  -h, --help            show this help message and exit
+  --alias ALIAS TARGET, -a ALIAS TARGET
+                        Add a new alias for a configuration
+  --list, -l            List available configurations
+  --init, -i            Create example configurations
+```
 
 ## Configuration Management
 
