@@ -10,28 +10,24 @@ Or see [install docs](doc/install.md) if you like safety.
 
 ## Quick Start
 
-1. First initialize the config directory with example configurations:
+1. First, initialize the config directory with example configurations:
 ```bash
 ca --init
 ```
 
-2. Copy your favorite aider configuration files into the config directory (~/.config/config-aider/). For example, if you have a configuration file called sota.yml:
+2. Copy your favorite aider configuration files into `~/.config/config-aider/`. For example, if you have a configuration file called sota.yml:
 ```bash
 cp sota.yml ~/.config/config-aider/
 ```
 
-3. Create an alias for your configuration. For example, to create an alias 's' for 'sota':
+3. Create an alias for your configuration. For example, to create an alias `s` for `sota`:
 ```bash
 ca --alias s sota
 ```
 
-4. Run aider using your alias:
+4. Run aider using your `s` config alias:
 ```bash
 ca s file1.py file2.py
-```
-
-```bash
-ca <alias> [files...]
 ```
 
 ## Usage
@@ -58,8 +54,8 @@ options:
 Configurations are stored in `~/.config/config-aider/`. You can:
 
 - Add your own `.yml` configuration files
-- Create aliases in `aliases.txt`
+- Create aliases in `aliases.txt`, either manually, or using `ca --alias ALIAS TARGET`
 - Use the sample configurations as templates
 
 For all configuration options, see the [Aider documentation](https://github.com/Aider-AI/aider/blob/main/aider/website/assets/sample.aider.conf.yml).
-These are simply aider configuration files that you can pass to aider with the `--config` flag, which is exactly with `ca` does.
+The YAML files are simply aider configuration files that you can pass to aider with the `--config` flag, which is exactly what `ca` does.
