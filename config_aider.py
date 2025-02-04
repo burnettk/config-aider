@@ -84,18 +84,14 @@ class ConfigManager:
 
 def _get_sample_config_dir() -> str:
     """Get the path to the sample config directory"""
-    # Try to find the source directory via symlink
     try:
-        # Get the path to this script
+        # Get the path to this script via the symlink
         script_path = os.path.realpath(__file__)
-        # Look for the source directory symlink
-        install_dir = os.path.dirname(script_path)
-        src_link = os.path.join(install_dir, "config-aider-src")
-        if os.path.islink(src_link):
-            src_dir = os.path.realpath(src_link)
-            sample_dir = os.path.join(src_dir, "sample_config")
-            if os.path.isdir(sample_dir):
-                return sample_dir
+        # Go up one directory to find the source directory
+        src_dir = os.path.dirname(script_path)
+        sample_dir = os.path.join(src_dir, "sample_config")
+        if os.path.isdir(sample_dir):
+            return sample_dir
     except Exception:
         pass
     return None
