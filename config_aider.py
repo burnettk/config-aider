@@ -149,7 +149,7 @@ Examples:
         help="Additional arguments to pass to aider",
     )
     parser.add_argument(
-        "--uninstall-config-aider",
+        "--uninstall-ca",
         action="store_true",
         help="Uninstall config-aider and remove all related files",
     )
@@ -225,7 +225,7 @@ Examples:
             sys.exit(1)
         return
 
-    if args.uninstall_config_aider:
+    if args.uninstall_ca:
         # Remove ~/.local/share/config-aider
         share_dir = os.path.expanduser("~/.local/share/config-aider")
         if os.path.exists(share_dir):
@@ -250,7 +250,7 @@ Examples:
 
     if args.run_alias:
         config_manager.run_with_config(args.run_alias, args.extra_args)
-    elif not any([args.alias, args.list, args.init, args.uninstall_config_aider]):
+    elif not any([args.alias, args.list, args.init, args.uninstall_ca]):
         parser.print_help()
 
 
