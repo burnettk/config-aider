@@ -30,10 +30,6 @@ ca --alias s sota
 ca s file1.py file2.py
 ```
 
-## Basic Usage
-
-Run Aider with a specific configuration alias:
-
 ```bash
 ca <alias> [files...]
 ```
