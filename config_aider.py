@@ -314,7 +314,7 @@ Examples:
         src_dir = os.path.dirname(script_path)
         
         # Check if this is a git repository
-        if not os.path.exists(os.path.join(src_dir, ".git"):
+        if not os.path.exists(os.path.join(src_dir, ".git")):
             print("Error: Not a git repository - cannot update")
             sys.exit(1)
             
