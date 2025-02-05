@@ -88,14 +88,20 @@ class ConfigManager:
         if not only_provider:
             return None
             
-        import yaml
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-            
         models = []
-        for model in [config.get("model"), config.get("editor_model"), config.get("weak_model")]:
-            if model and model.startswith("openrouter/"):
-                models.append(model)
+        with open(config_path) as f:
+            for line in f:
+                line = line.strip()
+                if "openrouter/" in line.lower():
+                    # Handle both quoted and unquoted values
+                    if ":" in line:
+                        key, value = line.split(":", 1)
+                        value = value.strip()
+                        # Remove quotes if present
+                        if value.startswith(('"', "'")) and value.endswith(('"', "'")):
+                            value = value[1:-1]
+                        if value.startswith("openrouter/"):
+                            models.append(value)
                 
         if not models:
             return None
@@ -308,7 +314,7 @@ Examples:
         src_dir = os.path.dirname(script_path)
         
         # Check if this is a git repository
-        if not os.path.exists(os.path.join(src_dir, ".git")):
+        if not os.path.exists(os.path.join(src_dir, ".git"):
             print("Error: Not a git repository - cannot update")
             sys.exit(1)
             
