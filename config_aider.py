@@ -221,6 +221,7 @@ Examples:
   %(prog)s --alias l llama3b      # Add 'myalias' for 'g' configuration
   %(prog)s l                      # Run aider with 'llama3b' config via the alias just added
   %(prog)s c3 file1.py file2.py   # Run with 'c3' config and additional files. Any additional args are passed through to aider.
+  %(prog)s or --only DeepSeek     # Run with 'or' config, which must map to an openrouter/ model, and instruct openrouter to use only the DeepSeek provider
         """,
     )
     parser.add_argument(
