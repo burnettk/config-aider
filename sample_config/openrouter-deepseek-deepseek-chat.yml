@@ -1,0 +1,2 @@
+model: openrouter/deepseek/deepseek-chat
+detect-urls: false

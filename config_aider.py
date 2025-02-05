@@ -83,6 +83,48 @@ class ConfigManager:
         with open(config_path) as f:
             print(f.read())
 
+    def _get_model_settings(self, config_path: str, only_provider: str = None) -> str:
+        """Generate model settings JSON for OpenRouter models"""
+        if not only_provider:
+            return None
+            
+        import yaml
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+            
+        models = []
+        for model in [config.get("model"), config.get("editor_model"), config.get("weak_model")]:
+            if model and model.startswith("openrouter/"):
+                models.append(model)
+                
+        if not models:
+            return None
+            
+        # Create model settings JSON
+        settings = []
+        for model in models:
+            settings.append({
+                "name": model,
+                "extra_params": {
+                    "extra_body": {
+                        "provider": {
+                            "order": [only_provider],
+                            "allow_fallbacks": False,
+                            "data_collection": "deny",
+                            "require_parameters": True
+                        }
+                    }
+                }
+            })
+            
+        # Write to temp file
+        import tempfile
+        tmp_file = tempfile.NamedTemporaryFile(mode="w", delete=False)
+        import json
+        json.dump(settings, tmp_file)
+        tmp_file.close()
+        return tmp_file.name
+
     def run_with_config(self, alias: str, extra_args: list) -> None:
         """Run aider with the specified configuration file or alias"""
         # First check if it's an alias
@@ -97,7 +139,25 @@ class ConfigManager:
             print(f"Expected to find config file at: {config_path}")
             sys.exit(1)
 
-        cmd = ["aider", "--config", config_path] + extra_args
+        # Handle --only switch
+        only_provider = None
+        if "--only" in extra_args:
+            try:
+                only_idx = extra_args.index("--only")
+                only_provider = extra_args[only_idx + 1]
+                # Remove --only and its argument from extra_args
+                extra_args = extra_args[:only_idx] + extra_args[only_idx + 2:]
+            except IndexError:
+                print("Error: --only requires a provider argument")
+                sys.exit(1)
+
+        # Generate model settings if needed
+        model_settings_file = self._get_model_settings(config_path, only_provider)
+        
+        cmd = ["aider", "--config", config_path]
+        if model_settings_file:
+            cmd.extend(["--model-settings-file", model_settings_file])
+        cmd.extend(extra_args)
 
         try:
             subprocess.run(cmd)
@@ -184,6 +244,11 @@ Examples:
         "--uninstall-ca",
         action="store_true",
         help="Uninstall config-aider and remove all related files",
+    )
+    parser.add_argument(
+        "--only",
+        metavar="PROVIDER",
+        help="For OpenRouter models, only use the specified provider (e.g. 'Azure', 'Anthropic')",
     )
     parser.add_argument(
         "--update-ca",
@@ -285,6 +350,9 @@ Examples:
         return
 
     if args.run_alias:
+        # Add --only to extra_args if specified
+        if args.only:
+            args.extra_args = ["--only", args.only] + args.extra_args
         config_manager.run_with_config(args.run_alias, args.extra_args)
     elif not any([args.alias, args.list, args.init, args.uninstall_ca]):
         parser.print_help()

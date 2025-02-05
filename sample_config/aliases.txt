@@ -1,0 +1,2 @@
+d:deepseek-deepseek-chat
+g:gemini-architect-and-editor
