@@ -35,17 +35,20 @@ class ConfigManager:
                         aliases[alias.strip()] = target.strip()
         return aliases
 
-    def list_configs(self) -> Dict[str, str]:
-        """List all available configurations and their file paths"""
-        configs = {}
+    def _get_config_to_aliases(self) -> Dict[str, list]:
+        """Get mapping of config names to their aliases"""
         aliases = self._get_aliases()
-        
-        # Create a mapping of config names to their aliases
         config_to_aliases = {}
         for alias, target in aliases.items():
             if target not in config_to_aliases:
                 config_to_aliases[target] = []
             config_to_aliases[target].append(alias)
+        return config_to_aliases
+
+    def list_configs(self) -> Dict[str, str]:
+        """List all available configurations and their file paths"""
+        configs = {}
+        config_to_aliases = self._get_config_to_aliases()
         
         # List all config files with their aliases
         for config_file in Path(self.config_dir).glob("*.yml"):
@@ -55,6 +58,30 @@ class ConfigManager:
             configs[config_name] = f"{str(config_file)}{alias_str}"
                 
         return configs
+
+    def show_config(self, config_name: str) -> None:
+        """Show the contents of a configuration file with its aliases"""
+        # First check if it's an alias
+        aliases = self._get_aliases()
+        if config_name in aliases:
+            config_name = aliases[config_name]
+            
+        config_path = os.path.join(self.config_dir, f"{config_name}.yml")
+
+        if not os.path.exists(config_path):
+            print(f"Error: No configuration found for '{config_name}'")
+            print(f"Expected to find config file at: {config_path}")
+            sys.exit(1)
+
+        # Get aliases for this config
+        config_to_aliases = self._get_config_to_aliases()
+        alias_list = config_to_aliases.get(config_name, [])
+        alias_str = f" (aliases: {', '.join(alias_list)})" if alias_list else ""
+
+        print(f"=== {config_name}{alias_str} ===")
+        print(f"File: {config_path}\n")
+        with open(config_path) as f:
+            print(f.read())
 
     def run_with_config(self, alias: str, extra_args: list) -> None:
         """Run aider with the specified configuration file or alias"""
@@ -144,6 +171,11 @@ Examples:
         "--init", "-i", action="store_true", help="Create example configurations"
     )
     parser.add_argument(
+        "--show", "-s",
+        metavar="CONFIG",
+        help="Show the contents of a configuration file"
+    )
+    parser.add_argument(
         "extra_args",
         nargs=argparse.REMAINDER,
         help="Additional arguments to pass to aider",
@@ -225,6 +257,10 @@ Examples:
             sys.exit(1)
         return
 
+    if args.show:
+        config_manager.show_config(args.show)
+        return
+        
     if args.uninstall_ca:
         # Remove ~/.local/share/config-aider
         share_dir = os.path.expanduser("~/.local/share/config-aider")
