@@ -298,7 +298,7 @@ Examples:
             
         # Add the new alias
         with open(aliases_path, "a") as f:
-            f.write(f"\n{alias}:{target}\n")
+            f.write(f"{alias}:{target}\n")
         print(f"Added alias: {alias} -> {target}")
         return
 
