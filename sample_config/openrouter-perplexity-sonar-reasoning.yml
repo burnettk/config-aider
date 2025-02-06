@@ -1,0 +1,3 @@
+model: openrouter/perplexity/sonar-reasoning
+detect-urls: false
+auto-commits: false
