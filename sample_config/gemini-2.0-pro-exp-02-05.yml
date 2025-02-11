@@ -1,2 +1,4 @@
 model: gemini/gemini-2.0-pro-exp-02-05
+weak_model_name: gemini/gemini-1.5-flash
+auto-commits: false
 detect-urls: false
