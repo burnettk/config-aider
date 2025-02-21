@@ -1,0 +1,3 @@
+model: o3-mini
+api-key-env: GITHUB_TOKEN
+openai-api-base: https://models.inference.ai.azure.com

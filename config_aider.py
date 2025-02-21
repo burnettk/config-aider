@@ -7,6 +7,7 @@ import subprocess
 import shutil
 from pathlib import Path
 from typing import Dict
+import tempfile
 
 
 class ConfigManager:
@@ -49,14 +50,14 @@ class ConfigManager:
         """List all available configurations and their file paths"""
         configs = {}
         config_to_aliases = self._get_config_to_aliases()
-        
+
         # List all config files with their aliases
         for config_file in Path(self.config_dir).glob("*.yml"):
             config_name = config_file.stem
             alias_list = config_to_aliases.get(config_name, [])
             alias_str = f" (aliases: {', '.join(alias_list)})" if alias_list else ""
             configs[config_name] = f"{str(config_file)}{alias_str}"
-                
+
         return configs
 
     def show_config(self, config_name: str) -> None:
@@ -65,7 +66,7 @@ class ConfigManager:
         aliases = self._get_aliases()
         if config_name in aliases:
             config_name = aliases[config_name]
-            
+
         config_path = os.path.join(self.config_dir, f"{config_name}.yml")
 
         if not os.path.exists(config_path):
@@ -87,7 +88,7 @@ class ConfigManager:
         """Generate model settings JSON for OpenRouter models"""
         if not only_provider:
             return None
-            
+
         models = []
         with open(config_path) as f:
             for line in f:
@@ -102,10 +103,10 @@ class ConfigManager:
                             value = value[1:-1]
                         if value.startswith("openrouter/"):
                             models.append(value)
-                
+
         if not models:
             return None
-            
+
         # Create model settings JSON
         settings = []
         for model in models:
@@ -122,14 +123,37 @@ class ConfigManager:
                     }
                 }
             })
-            
+
         # Write to temp file
-        import tempfile
         tmp_file = tempfile.NamedTemporaryFile(mode="w", delete=False)
         import json
         json.dump(settings, tmp_file)
         tmp_file.close()
         return tmp_file.name
+
+    def _get_api_key(self, config_path: str) -> str:
+        """Extract API key from config file or environment variable."""
+        with open(config_path, 'r') as f:
+            for line in f:
+                if line.strip().startswith('api-key-env:'):
+                    env_var_name = line.split(':', 1)[1].strip()
+                    api_key = os.environ.get(env_var_name)
+                    if api_key:
+                        return api_key
+                    else:
+                        print(f"Error: Environment variable '{env_var_name}' not set.")
+                        sys.exit(1)
+        return None
+
+    def create_temp_config_without_api_key(self, config_path: str, api_key: str) -> str:
+        """Create a temporary config file without the api-key-env line."""
+        temp_config = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yml")
+        with open(config_path, "r") as original_config:
+            for line in original_config:
+                if not line.strip().startswith("api-key-env:"):
+                    temp_config.write(line)
+        temp_config.close()
+        return temp_config.name
 
     def run_with_config(self, alias: str, extra_args: list) -> None:
         """Run aider with the specified configuration file or alias"""
@@ -137,7 +161,7 @@ class ConfigManager:
         aliases = self._get_aliases()
         if alias in aliases:
             alias = aliases[alias]
-            
+
         config_path = os.path.join(self.config_dir, f"{alias}.yml")
 
         if not os.path.exists(config_path):
@@ -159,8 +183,14 @@ class ConfigManager:
 
         # Generate model settings if needed
         model_settings_file = self._get_model_settings(config_path, only_provider)
-        
-        cmd = ["aider", "--config", config_path]
+
+        api_key = self._get_api_key(config_path)
+        if api_key:
+            temp_config_path = self.create_temp_config_without_api_key(config_path, api_key)
+            cmd = ["aider", "--config", temp_config_path, "--openai-api-key", api_key]
+        else:
+            cmd = ["aider", "--config", config_path]
+
         if model_settings_file:
             cmd.extend(["--model-settings-file", model_settings_file])
         cmd.extend(extra_args)
@@ -188,6 +218,7 @@ def _get_sample_config_dir() -> str:
     except Exception:
         pass
     return None
+
 
 def create_example_configs(config_manager: ConfigManager) -> None:
     """Create example configurations by copying from sample_config directory"""
@@ -225,7 +256,7 @@ Examples:
         """,
     )
     parser.add_argument(
-        "--alias", "-a", 
+        "--alias", "-a",
         nargs=2,
         metavar=("ALIAS", "TARGET"),
         help="Add a new alias for a configuration"
@@ -268,7 +299,7 @@ Examples:
         parser.print_help()
         print(f"\nError: Unrecognized arguments: {' '.join(unknown_args)}")
         sys.exit(1)
-    
+
     # Add unknown args to extra_args if we have a run_alias
     if args.run_alias:
         args.extra_args = unknown_args + args.extra_args
@@ -279,23 +310,23 @@ Examples:
         create_example_configs(config_manager)
         print("Created example configurations in ~/.config/config-aider/. Add your own yml files there.")
         return
-        
+
     if args.alias:
         alias, target = args.alias
         aliases_path = os.path.join(config_manager.config_dir, "aliases.txt")
-        
+
         # Check if alias already exists
         existing_aliases = config_manager._get_aliases()
         if alias in existing_aliases:
             print(f"Error: Alias '{alias}' already exists")
             sys.exit(1)
-            
+
         # Check if target config exists
         target_path = os.path.join(config_manager.config_dir, f"{target}.yml")
         if not os.path.exists(target_path):
             print(f"Error: Target configuration '{target}' does not exist")
             sys.exit(1)
-            
+
         # Add the new alias
         with open(aliases_path, "a") as f:
             f.write(f"{alias}:{target}\n")
@@ -313,12 +344,12 @@ Examples:
         script_path = os.path.realpath(__file__)
         # Get the source directory
         src_dir = os.path.dirname(script_path)
-        
+
         # Check if this is a git repository
         if not os.path.exists(os.path.join(src_dir, ".git")):
             print("Error: Not a git repository - cannot update")
             sys.exit(1)
-            
+
         # Run git pull
         try:
             print(f"Updating config-aider in {src_dir}")
@@ -332,27 +363,27 @@ Examples:
     if args.show:
         config_manager.show_config(args.show)
         return
-        
+
     if args.uninstall_ca:
         # Remove ~/.local/share/config-aider
         share_dir = os.path.expanduser("~/.local/share/config-aider")
         if os.path.exists(share_dir):
             print(f"Removing {share_dir}")
             shutil.rmtree(share_dir)
-        
+
         # Move ~/.config/config-aider to /tmp
         config_dir = os.path.expanduser("~/.config/config-aider")
         if os.path.exists(config_dir):
             tmp_dir = f"/tmp/config-aider-{os.getpid()}"
             print(f"Moving {config_dir} to {tmp_dir}")
             shutil.move(config_dir, tmp_dir)
-        
+
         # Remove the ca symlink
         ca_path = shutil.which("ca")
         if ca_path:
             print(f"Removing {ca_path}")
             os.unlink(ca_path)
-        
+
         print("Uninstall complete")
         return
 
