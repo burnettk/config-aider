@@ -145,12 +145,21 @@ class ConfigManager:
                         sys.exit(1)
         return None
 
+    def _get_api_key_provider(self, config_path: str) -> str:
+        """Extract API key from config file or environment variable."""
+        with open(config_path, 'r') as f:
+            for line in f:
+                if line.strip().startswith('api-key-provider:'):
+                    provider_name = line.split(':', 1)[1].strip()
+                    return provider_name
+        return None
+
     def create_temp_config_without_api_key(self, config_path: str, api_key: str) -> str:
         """Create a temporary config file without the api-key-env line."""
         temp_config = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yml")
         with open(config_path, "r") as original_config:
             for line in original_config:
-                if not line.strip().startswith("api-key-env:"):
+                if not line.strip().startswith("api-key-env:") and not line.strip().startswith("api-key-provider"):
                     temp_config.write(line)
         temp_config.close()
         return temp_config.name
@@ -185,9 +194,12 @@ class ConfigManager:
         model_settings_file = self._get_model_settings(config_path, only_provider)
 
         api_key = self._get_api_key(config_path)
+        api_key_provider = self._get_api_key_provider(config_path) or "openai"
         if api_key:
             temp_config_path = self.create_temp_config_without_api_key(config_path, api_key)
-            cmd = ["aider", "--config", temp_config_path, "--openai-api-key", api_key]
+            if os.environ.get("CA_DEBUG") == "true":
+                print(f"using tmp config path: {temp_config_path}")
+            cmd = ["aider", "--config", temp_config_path, "--api-key", f"{api_key_provider}={api_key}"]
         else:
             cmd = ["aider", "--config", config_path]
 
