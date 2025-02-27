@@ -1,7 +1,7 @@
 model: azure/gpt-4o
 api-key-env: AZURE_API_KEY_GPT4O_0806
 api-key-provider: azure
-no-auto-commits: true
+auto-commits: false
 openai-api-base: https://azure-openai-feb.openai.azure.com
 no-detect-urls: true
 # lint-cmd: typescript:echo
