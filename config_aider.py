@@ -208,10 +208,12 @@ class ConfigManager:
         cmd.extend(extra_args)
 
         try:
-            subprocess.run(cmd)
+            # Use os.execvpe to replace the current process with aider
+            os.execvpe(cmd[0], cmd, os.environ)
         except FileNotFoundError:
             print(f"Error: Command '{cmd[0]}' not found")
             sys.exit(1)
+        # We shouldn't reach here because of execvpe, but just in case:
         except KeyboardInterrupt:
             print("\nOperation cancelled by user")
             sys.exit(1)
