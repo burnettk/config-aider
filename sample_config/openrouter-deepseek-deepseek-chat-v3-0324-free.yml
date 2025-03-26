@@ -1,0 +1,3 @@
+model: openrouter/deepseek/deepseek-chat-v3-0324:free
+detect-urls: false
+auto-commit: false
