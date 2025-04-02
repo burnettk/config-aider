@@ -5,6 +5,7 @@ import sys
 import argparse
 import subprocess
 import shutil
+import shlex
 from pathlib import Path
 from typing import Dict
 import tempfile
@@ -205,6 +206,25 @@ class ConfigManager:
 
         if model_settings_file:
             cmd.extend(["--model-settings-file", model_settings_file])
+
+        standard_args_file = Path(".aider-standard-repo-args")
+        if standard_args_file.is_file():
+            standard_args = []
+            with open(standard_args_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'): # Ignore empty lines and comments
+                        try:
+                            # Split line into args respecting quotes, like a shell
+                            args_from_line = shlex.split(line)
+                            standard_args.extend(args_from_line)
+                        except ValueError as e:
+                            print(f"Warning: Skipping invalid line in {standard_args_file}: {line} ({e})")
+            if standard_args:
+                # Use shlex.join for safer display of args that might contain spaces
+                print(f"Adding standard repo args from {standard_args_file}: {shlex.join(standard_args)}")
+                cmd.extend(standard_args)
+
         cmd.extend(extra_args)
 
         try:
