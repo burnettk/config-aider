@@ -3,3 +3,4 @@ weak-model: gemini/gemini-1.5-flash
 auto-commits: false
 detect-urls: false
 show-model-warnings: false
+show-release-notes: false

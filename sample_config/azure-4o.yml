@@ -7,3 +7,4 @@ no-detect-urls: true
 # lint-cmd: typescript:echo
 model-metadata-file: "/Users/kevin/projects/github/no-term-limits/setup/aider_custom_model_metadata.json"
 map-tokens: 1024
+show-release-notes: false

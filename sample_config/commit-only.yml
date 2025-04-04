@@ -1,3 +1,4 @@
 model: gemini/gemini-2.0-flash-lite-preview-02-05
 weak-model: gemini/gemini-2.0-flash-lite-preview-02-05
 show-model-warnings: false
+show-release-notes: false

@@ -2,3 +2,4 @@ model: gemini/gemini-2.0-flash-lite-preview-02-05
 detect-urls: false
 auto-commits: false
 show-model-warnings: false
+show-release-notes: false

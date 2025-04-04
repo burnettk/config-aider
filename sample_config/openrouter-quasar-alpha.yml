@@ -2,3 +2,4 @@ model: openrouter/openrouter/quasar-alpha
 weak-model: gemini/gemini-2.0-flash-exp
 detect-urls: false
 auto-commits: false
+show-release-notes: false
