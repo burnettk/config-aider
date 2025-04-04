@@ -202,73 +202,75 @@ class ConfigManager:
 
             api_key_env_var, api_key_provider = self._get_api_key_info(specific_config_path)
             api_key = None
-        if api_key_env_var:
-            api_key = os.environ.get(api_key_env_var)
-            if not api_key:
-                print(f"Error: Environment variable '{api_key_env_var}' specified in config but not set.")
-                sys.exit(1)
+            if api_key_env_var:
+                api_key = os.environ.get(api_key_env_var)
+                if not api_key:
+                    print(f"Error: Environment variable '{api_key_env_var}' specified in config but not set.")
+                    sys.exit(1)
 
-        global_defaults_exist = self.global_defaults_path.is_file()
-        needs_temp_config = global_defaults_exist or (api_key is not None)
+            global_defaults_exist = self.global_defaults_path.is_file()
+            needs_temp_config = global_defaults_exist or (api_key is not None)
 
-        temp_config_path = None
-        effective_config_path = str(specific_config_path)
+            # temp_config_path is initialized to None before the try block
+            effective_config_path = str(specific_config_path)
 
-        if needs_temp_config:
-            try:
-                temp_config_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yml", encoding='utf-8')
-                temp_config_path = temp_config_file.name
+            if needs_temp_config:
+                try:
+                    # Use a nested try specific to temp file creation? No, keep it simple.
+                    # The outer finally block will handle cleanup if this fails.
+                    temp_config_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yml", encoding='utf-8')
+                    temp_config_path = temp_config_file.name # Assign here so finally block knows about it
 
-                if global_defaults_exist:
+                    if global_defaults_exist:
+                        if os.environ.get("CA_DEBUG") == "true":
+                            print(f"Prepending global defaults from {self.global_defaults_path}")
+                        with open(self.global_defaults_path, "r") as f_global:
+                            shutil.copyfileobj(f_global, temp_config_file)
+                        temp_config_file.write("\n")
+
                     if os.environ.get("CA_DEBUG") == "true":
-                        print(f"Prepending global defaults from {self.global_defaults_path}")
-                    with open(self.global_defaults_path, "r") as f_global:
-                        shutil.copyfileobj(f_global, temp_config_file)
-                    temp_config_file.write("\n")
+                        print(f"Appending specific config from {specific_config_path} (filtering API keys)")
+                    with open(specific_config_path, "r") as f_specific:
+                        for line in f_specific:
+                            stripped_line = line.strip()
+                            if not stripped_line.startswith("api-key-env:") and not stripped_line.startswith("api-key-provider:"):
+                                temp_config_file.write(line)
 
-                if os.environ.get("CA_DEBUG") == "true":
-                    print(f"Appending specific config from {specific_config_path} (filtering API keys)")
-                with open(specific_config_path, "r") as f_specific:
-                    for line in f_specific:
-                        stripped_line = line.strip()
-                        if not stripped_line.startswith("api-key-env:") and not stripped_line.startswith("api-key-provider:"):
-                            temp_config_file.write(line)
+                    temp_config_file.close()
+                    effective_config_path = temp_config_path
+                    if os.environ.get("CA_DEBUG") == "true":
+                        print(f"Using combined temporary config path: {effective_config_path}")
 
-                temp_config_file.close()
-                effective_config_path = temp_config_path
-                if os.environ.get("CA_DEBUG") == "true":
-                    print(f"Using combined temporary config path: {effective_config_path}")
+                except Exception as e:
+                    print(f"Error creating temporary config file: {e}")
+                    # Let the outer finally block handle cleanup
+                    sys.exit(1) # Exit after printing error
 
-            except Exception as e:
-                print(f"Error creating temporary config file: {e}")
-                # Cleanup is handled in finally block
-                sys.exit(1)
+            cmd = ["aider", "--config", effective_config_path]
 
-        cmd = ["aider", "--config", effective_config_path]
+            if api_key:
+                cmd.extend(["--api-key", f"{api_key_provider}={api_key}"])
 
-        if api_key:
-            cmd.extend(["--api-key", f"{api_key_provider}={api_key}"])
+            if model_settings_file:
+                cmd.extend(["--model-settings-file", model_settings_file])
 
-        if model_settings_file:
-            cmd.extend(["--model-settings-file", model_settings_file])
-
-        standard_args_file = Path(".aider-standard-repo-args")
-        if standard_args_file.is_file():
-            standard_args = []
-            with open(standard_args_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#'): # Ignore empty lines and comments
-                        try:
-                            # Split line into args respecting quotes, like a shell
-                            args_from_line = shlex.split(line)
-                            standard_args.extend(args_from_line)
-                        except ValueError as e:
-                            print(f"Warning: Skipping invalid line in {standard_args_file}: {line} ({e})")
-            if standard_args:
-                # Use shlex.join for safer display of args that might contain spaces
-                print(f"Adding standard repo args from {standard_args_file}: {shlex.join(standard_args)}")
-                cmd.extend(standard_args)
+            standard_args_file = Path(".aider-standard-repo-args")
+            if standard_args_file.is_file():
+                standard_args = []
+                with open(standard_args_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'): # Ignore empty lines and comments
+                            try:
+                                # Split line into args respecting quotes, like a shell
+                                args_from_line = shlex.split(line)
+                                standard_args.extend(args_from_line)
+                            except ValueError as e:
+                                print(f"Warning: Skipping invalid line in {standard_args_file}: {line} ({e})")
+                if standard_args:
+                    # Use shlex.join for safer display of args that might contain spaces
+                    print(f"Adding standard repo args from {standard_args_file}: {shlex.join(standard_args)}")
+                    cmd.extend(standard_args)
 
             cmd.extend(extra_args)
 
@@ -276,6 +278,7 @@ class ConfigManager:
                 print(f"Executing command: {shlex.join(cmd)}")
             os.execvpe(cmd[0], cmd, os.environ)
 
+        # Outer except blocks start here
         except FileNotFoundError:
             print(f"Error: Command '{cmd[0]}' not found")
             # Cleanup is handled in finally block
