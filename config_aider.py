@@ -143,6 +143,30 @@ class ConfigManager:
                 os.unlink(tmp_file_path)
             sys.exit(1)
 
+    def _resolve_config_path(self, alias: str) -> Path:
+        """Resolve alias to config path and check existence."""
+        aliases = self._get_aliases()
+        config_name = alias
+        if alias in aliases:
+            config_name = aliases[alias]
+
+        specific_config_path = self.config_dir / f"{config_name}.yml"
+
+        if not specific_config_path.is_file():
+            print(f"Error: No configuration found for '{config_name}'")
+            print(f"Expected to find config file at: {specific_config_path}")
+            sys.exit(1)
+        return specific_config_path
+
+    def _get_api_key_value(self, api_key_env_var: Optional[str]) -> Optional[str]:
+        """Get API key value from environment variable."""
+        if not api_key_env_var:
+            return None
+        api_key = os.environ.get(api_key_env_var)
+        if not api_key:
+            print(f"Error: Environment variable '{api_key_env_var}' specified in config but not set.")
+            sys.exit(1)
+        return api_key
 
     def _get_api_key_info(self, config_path: Path) -> Tuple[Optional[str], Optional[str]]:
         """
@@ -242,18 +266,19 @@ class ConfigManager:
         cmd.extend(extra_args)
         return cmd
 
+    def _execute_aider(self, cmd: List[str]) -> None:
+        """Execute the aider command."""
+        try:
+            if os.environ.get("CA_DEBUG") == "true":
+                print(f"Executing command: {shlex.join(cmd)}")
+            os.execvpe(cmd[0], cmd, os.environ)
+        except FileNotFoundError:
+            print(f"Error: Command '{cmd[0]}' not found")
+            sys.exit(1) # Exit here, cleanup happens in the caller's finally
+
     def run_with_config(self, alias: str, extra_args: List[str]) -> None:
         """Run aider with the specified configuration file or alias"""
-        aliases = self._get_aliases()
-        config_name = alias
-        if alias in aliases:
-            config_name = aliases[alias]
-
-        specific_config_path = self.config_dir / f"{config_name}.yml"
-
-        if not specific_config_path.is_file():
-            print(f"Error: No configuration found for '{config_name}'")
-            print(f"Expected to find config file at: {specific_config_path}")
+        specific_config_path = self._resolve_config_path(alias)
         only_provider, extra_args = self._parse_only_provider(extra_args)
 
         model_settings_file = None
@@ -263,12 +288,7 @@ class ConfigManager:
         try:
             model_settings_file = self._get_model_settings(str(specific_config_path), only_provider)
             api_key_env_var, api_key_provider = self._get_api_key_info(specific_config_path)
-            api_key = None
-            if api_key_env_var:
-                api_key = os.environ.get(api_key_env_var)
-                if not api_key:
-                    print(f"Error: Environment variable '{api_key_env_var}' specified in config but not set.")
-                    sys.exit(1)
+            api_key = self._get_api_key_value(api_key_env_var)
 
             global_defaults_exist = self.global_defaults_path.is_file()
             needs_temp_config = global_defaults_exist or (api_key is not None)
@@ -290,15 +310,9 @@ class ConfigManager:
                 extra_args
             )
 
-            if os.environ.get("CA_DEBUG") == "true":
-                print(f"Executing command: {shlex.join(cmd)}")
-            os.execvpe(cmd[0], cmd, os.environ)
+            self._execute_aider(cmd)
 
         # Outer except blocks start here
-        except FileNotFoundError:
-            print(f"Error: Command '{cmd[0]}' not found")
-            # Cleanup is handled in finally block
-            sys.exit(1)
         except KeyboardInterrupt:
             print("\nOperation cancelled by user")
             # Cleanup is handled in finally block
@@ -433,7 +447,8 @@ def _handle_uninstall() -> None:
     print("Uninstall complete. You may need to manually remove other related files if installed differently.")
 
 
-def main():
+def _parse_arguments() -> Tuple[argparse.ArgumentParser, argparse.Namespace]:
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="Aider configuration manager",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -486,18 +501,24 @@ Examples:
         help="Update config-aider by pulling latest changes from git",
     )
     args, unknown_args = parser.parse_known_args()
-    if unknown_args and not args.run_alias:
-        # If there are unknown args and no run_alias specified, show help
+
+    # Handle unknown args specifically for the run_alias case
+    if args.run_alias:
+        args.extra_args = unknown_args + args.extra_args
+    elif unknown_args:
+        # If there are unknown args and no run_alias specified, it's an error
         parser.print_help()
         print(f"\nError: Unrecognized arguments: {' '.join(unknown_args)}")
         sys.exit(1)
 
-    # Add unknown args to extra_args if we have a run_alias
-    if args.run_alias:
-        args.extra_args = unknown_args + args.extra_args
+    return parser, args
 
+
+def main():
+    parser, args = _parse_arguments()
     config_manager = ConfigManager()
 
+    # Handle actions that don't involve running aider first
     if args.init:
         create_example_configs(config_manager)
         print("Created example configurations in ~/.config/config-aider/. Add your own yml files there.")
@@ -531,6 +552,7 @@ Examples:
             args.extra_args = ["--only", args.only] + args.extra_args
         config_manager.run_with_config(args.run_alias, args.extra_args)
     elif not any([args.alias, args.list, args.init, args.uninstall_ca, args.update_ca, args.show]):
+        # If no action was taken and no run_alias provided, show help
         parser.print_help()
 
 
