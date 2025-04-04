@@ -207,6 +207,23 @@ class ConfigManager:
         if model_settings_file:
             cmd.extend(["--model-settings-file", model_settings_file])
 
+        # Add global default options from ~/.config/config-aider/global_aider_args.txt
+        global_args_path = Path(os.path.expanduser("~/.config/config-aider/global_aider_args.txt"))
+        if global_args_path.is_file():
+            global_args = []
+            with open(global_args_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        try:
+                            args_from_line = shlex.split(line)
+                            global_args.extend(args_from_line)
+                        except ValueError as e:
+                            print(f"Warning: Skipping invalid line in {global_args_path}: {line} ({e})")
+            if global_args:
+                print(f"Adding global aider args from {global_args_path}: {shlex.join(global_args)}")
+                cmd.extend(global_args)
+
         standard_args_file = Path(".aider-standard-repo-args")
         if standard_args_file.is_file():
             standard_args = []
