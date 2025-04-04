@@ -1,1 +1,5 @@
+auto-commits: false
+check-update: false
+detect-urls: false
 show-release-notes: false
+vim: true

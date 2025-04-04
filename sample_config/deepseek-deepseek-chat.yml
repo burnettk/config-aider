@@ -1,4 +1,1 @@
 model: deepseek/deepseek-chat
-detect-urls: false
-auto-commits: false
-show-release-notes: false

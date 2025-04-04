@@ -1,4 +1,1 @@
 model: openrouter/deepseek/deepseek-chat:free
-detect-urls: false
-auto-commits: false
-show-release-notes: false
