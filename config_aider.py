@@ -7,7 +7,7 @@ import subprocess
 import shutil
 import shlex
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple # Added List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import tempfile
 
 
@@ -168,6 +168,79 @@ class ConfigManager:
 
         return api_key_env_var, api_key_provider
 
+    def _parse_only_provider(self, extra_args: List[str]) -> Tuple[Optional[str], List[str]]:
+        """Handles the --only argument, returning the provider and updated args."""
+        only_provider = None
+        if "--only" in extra_args:
+            try:
+                only_idx = extra_args.index("--only")
+                only_provider = extra_args[only_idx + 1]
+                extra_args = extra_args[:only_idx] + extra_args[only_idx + 2:]
+            except IndexError:
+                print("Error: --only requires a provider argument")
+                sys.exit(1)
+        return only_provider, extra_args
+
+    def _create_temporary_config(self, specific_config_path: Path, global_defaults_exist: bool) -> Optional[str]:
+        """Combines global defaults and specific config into a temporary file if needed."""
+        temp_config_path = None
+        try:
+            temp_config_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yml", encoding='utf-8')
+            temp_config_path = temp_config_file.name
+
+            if global_defaults_exist:
+                if os.environ.get("CA_DEBUG") == "true":
+                    print(f"Prepending global defaults from {self.global_defaults_path}")
+                with open(self.global_defaults_path, "r") as f_global:
+                    shutil.copyfileobj(f_global, temp_config_file)
+                temp_config_file.write("\n")
+
+            if os.environ.get("CA_DEBUG") == "true":
+                print(f"Appending specific config from {specific_config_path} (filtering API keys)")
+            with open(specific_config_path, "r") as f_specific:
+                for line in f_specific:
+                    stripped_line = line.strip()
+                    if not stripped_line.startswith("api-key-env:") and not stripped_line.startswith("api-key-provider:"):
+                        temp_config_file.write(line)
+
+            temp_config_file.close()
+            if os.environ.get("CA_DEBUG") == "true":
+                print(f"Using combined temporary config path: {temp_config_path}")
+            return temp_config_path
+        except Exception as e:
+            print(f"Error creating temporary config file: {e}")
+            if temp_config_path and os.path.exists(temp_config_path):
+                os.unlink(temp_config_path) # Clean up if creation failed mid-way
+            sys.exit(1)
+
+    def _read_standard_repo_args(self) -> List[str]:
+        """Reads arguments from .aider-standard-repo-args file."""
+        standard_args_file = Path(".aider-standard-repo-args")
+        standard_args = []
+        if standard_args_file.is_file():
+            with open(standard_args_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        try:
+                            args_from_line = shlex.split(line)
+                            standard_args.extend(args_from_line)
+                        except ValueError as e:
+                            print(f"Warning: Skipping invalid line in {standard_args_file}: {line} ({e})")
+            if standard_args and os.environ.get("CA_DEBUG") != "true": # Only print if not in debug, debug prints later
+                 print(f"Adding standard repo args from {standard_args_file}: {shlex.join(standard_args)}")
+        return standard_args
+
+    def _build_aider_command(self, effective_config_path: str, api_key_provider: Optional[str], api_key: Optional[str], model_settings_file: Optional[str], standard_args: List[str], extra_args: List[str]) -> List[str]:
+        """Builds the command list to execute aider."""
+        cmd = ["aider", "--config", effective_config_path]
+        if api_key:
+            cmd.extend(["--api-key", f"{api_key_provider}={api_key}"])
+        if model_settings_file:
+            cmd.extend(["--model-settings-file", model_settings_file])
+        cmd.extend(standard_args)
+        cmd.extend(extra_args)
+        return cmd
 
     def run_with_config(self, alias: str, extra_args: List[str]) -> None:
         """Run aider with the specified configuration file or alias"""
@@ -181,25 +254,14 @@ class ConfigManager:
         if not specific_config_path.is_file():
             print(f"Error: No configuration found for '{config_name}'")
             print(f"Expected to find config file at: {specific_config_path}")
-            sys.exit(1)
-
-        # Handle --only switch
-        only_provider = None
-        if "--only" in extra_args:
-            try:
-                only_idx = extra_args.index("--only")
-                only_provider = extra_args[only_idx + 1]
-                # Remove --only and its argument from extra_args
-                extra_args = extra_args[:only_idx] + extra_args[only_idx + 2:]
-            except IndexError:
-                print("Error: --only requires a provider argument")
-                sys.exit(1)
+        only_provider, extra_args = self._parse_only_provider(extra_args)
 
         model_settings_file = None
         temp_config_path = None
+        cmd = [] # Initialize cmd here to ensure it's defined for the finally block if errors occur early
+
         try:
             model_settings_file = self._get_model_settings(str(specific_config_path), only_provider)
-
             api_key_env_var, api_key_provider = self._get_api_key_info(specific_config_path)
             api_key = None
             if api_key_env_var:
@@ -210,69 +272,23 @@ class ConfigManager:
 
             global_defaults_exist = self.global_defaults_path.is_file()
             needs_temp_config = global_defaults_exist or (api_key is not None)
-
-            # temp_config_path is initialized to None before the try block
             effective_config_path = str(specific_config_path)
 
             if needs_temp_config:
-                try:
-                    # Use a nested try specific to temp file creation? No, keep it simple.
-                    # The outer finally block will handle cleanup if this fails.
-                    temp_config_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yml", encoding='utf-8')
-                    temp_config_path = temp_config_file.name # Assign here so finally block knows about it
+                # _create_temporary_config handles its own errors and cleanup on failure
+                temp_config_path = self._create_temporary_config(specific_config_path, global_defaults_exist)
+                effective_config_path = temp_config_path
 
-                    if global_defaults_exist:
-                        if os.environ.get("CA_DEBUG") == "true":
-                            print(f"Prepending global defaults from {self.global_defaults_path}")
-                        with open(self.global_defaults_path, "r") as f_global:
-                            shutil.copyfileobj(f_global, temp_config_file)
-                        temp_config_file.write("\n")
+            standard_args = self._read_standard_repo_args()
 
-                    if os.environ.get("CA_DEBUG") == "true":
-                        print(f"Appending specific config from {specific_config_path} (filtering API keys)")
-                    with open(specific_config_path, "r") as f_specific:
-                        for line in f_specific:
-                            stripped_line = line.strip()
-                            if not stripped_line.startswith("api-key-env:") and not stripped_line.startswith("api-key-provider:"):
-                                temp_config_file.write(line)
-
-                    temp_config_file.close()
-                    effective_config_path = temp_config_path
-                    if os.environ.get("CA_DEBUG") == "true":
-                        print(f"Using combined temporary config path: {effective_config_path}")
-
-                except Exception as e:
-                    print(f"Error creating temporary config file: {e}")
-                    # Let the outer finally block handle cleanup
-                    sys.exit(1) # Exit after printing error
-
-            cmd = ["aider", "--config", effective_config_path]
-
-            if api_key:
-                cmd.extend(["--api-key", f"{api_key_provider}={api_key}"])
-
-            if model_settings_file:
-                cmd.extend(["--model-settings-file", model_settings_file])
-
-            standard_args_file = Path(".aider-standard-repo-args")
-            if standard_args_file.is_file():
-                standard_args = []
-                with open(standard_args_file, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#'): # Ignore empty lines and comments
-                            try:
-                                # Split line into args respecting quotes, like a shell
-                                args_from_line = shlex.split(line)
-                                standard_args.extend(args_from_line)
-                            except ValueError as e:
-                                print(f"Warning: Skipping invalid line in {standard_args_file}: {line} ({e})")
-                if standard_args:
-                    # Use shlex.join for safer display of args that might contain spaces
-                    print(f"Adding standard repo args from {standard_args_file}: {shlex.join(standard_args)}")
-                    cmd.extend(standard_args)
-
-            cmd.extend(extra_args)
+            cmd = self._build_aider_command(
+                effective_config_path,
+                api_key_provider,
+                api_key,
+                model_settings_file,
+                standard_args,
+                extra_args
+            )
 
             if os.environ.get("CA_DEBUG") == "true":
                 print(f"Executing command: {shlex.join(cmd)}")
@@ -337,6 +353,84 @@ def create_example_configs(config_manager: ConfigManager) -> None:
     if aliases_src_path.exists():
         shutil.copy(aliases_src_path, aliases_dest_path)
         print(f"Created {aliases_dest_path}")
+
+def _handle_add_alias(config_manager: ConfigManager, alias: str, target: str) -> None:
+    """Adds a new alias."""
+    aliases_path = config_manager.config_dir / "aliases.txt"
+    existing_aliases = config_manager._get_aliases()
+    if alias in existing_aliases:
+        print(f"Error: Alias '{alias}' already exists")
+        sys.exit(1)
+
+    target_path = config_manager.config_dir / f"{target}.yml"
+    if not target_path.is_file():
+        print(f"Error: Target configuration '{target}' does not exist at {target_path}")
+        sys.exit(1)
+
+    with open(aliases_path, "a") as f:
+        f.write(f"{alias}:{target}\n")
+    print(f"Added alias: {alias} -> {target}")
+
+def _handle_update() -> None:
+    """Updates config-aider by pulling latest changes from git."""
+    try:
+        script_path = os.path.realpath(__file__)
+        src_dir = os.path.dirname(script_path)
+    except NameError: # __file__ might not be defined (e.g. interactive)
+         print("Error: Could not determine script path.")
+         sys.exit(1)
+
+    if not os.path.exists(os.path.join(src_dir, ".git")):
+        print(f"Error: Not a git repository ({src_dir}) - cannot update")
+        sys.exit(1)
+
+    try:
+        print(f"Updating config-aider in {src_dir}")
+        # Use absolute path for git -C
+        subprocess.run(["git", "-C", src_dir, "pull"], check=True)
+        print("Update complete")
+    except subprocess.CalledProcessError as e:
+        print(f"Error: Failed to update: {e}")
+        sys.exit(1)
+    except FileNotFoundError:
+        print("Error: 'git' command not found. Is git installed and in your PATH?")
+        sys.exit(1)
+
+def _handle_uninstall() -> None:
+    """Uninstalls config-aider."""
+    share_dir = os.path.expanduser("~/.local/share/config-aider")
+    if os.path.exists(share_dir):
+        print(f"Removing {share_dir}")
+        shutil.rmtree(share_dir)
+
+    config_dir = os.path.expanduser("~/.config/config-aider")
+    if os.path.exists(config_dir):
+        tmp_dir = f"/tmp/config-aider-{os.getpid()}"
+        print(f"Moving {config_dir} to {tmp_dir}")
+        try:
+            shutil.move(config_dir, tmp_dir)
+        except Exception as e:
+            print(f"Error moving config directory: {e}")
+            # Continue to attempt removing symlink
+
+    ca_path = shutil.which("ca")
+    if ca_path and os.path.islink(ca_path): # Check if it's a symlink before removing
+        try:
+            # Check if the symlink points to this script before removing
+            target_path = os.path.realpath(ca_path)
+            script_path = os.path.realpath(__file__)
+            if target_path == script_path:
+                print(f"Removing symlink {ca_path}")
+                os.unlink(ca_path)
+            else:
+                print(f"Skipping removal of {ca_path} as it does not point to this script ({target_path})")
+        except Exception as e:
+            print(f"Error removing symlink {ca_path}: {e}")
+    elif ca_path:
+        print(f"Skipping removal of {ca_path} as it is not a symlink.")
+
+
+    print("Uninstall complete. You may need to manually remove other related files if installed differently.")
 
 
 def main():
@@ -410,25 +504,7 @@ Examples:
         return
 
     if args.alias:
-        alias, target = args.alias
-        aliases_path = config_manager.config_dir / "aliases.txt"
-
-        # Check if alias already exists
-        existing_aliases = config_manager._get_aliases()
-        if alias in existing_aliases:
-            print(f"Error: Alias '{alias}' already exists")
-            sys.exit(1)
-
-        # Check if target config exists
-        target_path = config_manager.config_dir / f"{target}.yml"
-        if not target_path.is_file():
-            print(f"Error: Target configuration '{target}' does not exist")
-            sys.exit(1)
-
-        # Add the new alias
-        with open(aliases_path, "a") as f:
-            f.write(f"{alias}:{target}\n")
-        print(f"Added alias: {alias} -> {target}")
+        _handle_add_alias(config_manager, args.alias[0], args.alias[1])
         return
 
     if args.list:
@@ -438,24 +514,7 @@ Examples:
         return
 
     if args.update_ca:
-        # Get the path to this script via the symlink
-        script_path = os.path.realpath(__file__)
-        # Get the source directory
-        src_dir = os.path.dirname(script_path)
-
-        # Check if this is a git repository
-        if not os.path.exists(os.path.join(src_dir, ".git")):
-            print("Error: Not a git repository - cannot update")
-            sys.exit(1)
-
-        # Run git pull
-        try:
-            print(f"Updating config-aider in {src_dir}")
-            subprocess.run(["git", "-C", src_dir, "pull"], check=True)
-            print("Update complete")
-        except subprocess.CalledProcessError as e:
-            print(f"Error: Failed to update: {e}")
-            sys.exit(1)
+        _handle_update()
         return
 
     if args.show:
@@ -463,34 +522,15 @@ Examples:
         return
 
     if args.uninstall_ca:
-        # Remove ~/.local/share/config-aider
-        share_dir = os.path.expanduser("~/.local/share/config-aider")
-        if os.path.exists(share_dir):
-            print(f"Removing {share_dir}")
-            shutil.rmtree(share_dir)
-
-        # Move ~/.config/config-aider to /tmp
-        config_dir = os.path.expanduser("~/.config/config-aider")
-        if os.path.exists(config_dir):
-            tmp_dir = f"/tmp/config-aider-{os.getpid()}"
-            print(f"Moving {config_dir} to {tmp_dir}")
-            shutil.move(config_dir, tmp_dir)
-
-        # Remove the ca symlink
-        ca_path = shutil.which("ca")
-        if ca_path:
-            print(f"Removing {ca_path}")
-            os.unlink(ca_path)
-
-        print("Uninstall complete")
+        _handle_uninstall()
         return
 
     if args.run_alias:
-        # Add --only to extra_args if specified
+        # Add it back to extra_args if it was passed as a top-level arg
         if args.only:
             args.extra_args = ["--only", args.only] + args.extra_args
         config_manager.run_with_config(args.run_alias, args.extra_args)
-    elif not any([args.alias, args.list, args.init, args.uninstall_ca]):
+    elif not any([args.alias, args.list, args.init, args.uninstall_ca, args.update_ca, args.show]):
         parser.print_help()
 
 
