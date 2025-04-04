@@ -7,23 +7,24 @@ import subprocess
 import shutil
 import shlex
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional, Tuple # Added List, Optional, Tuple
 import tempfile
 
 
 class ConfigManager:
     def __init__(self, config_dir: str = "~/.config/config-aider"):
-        self.config_dir = os.path.expanduser(config_dir)
+        self.config_dir = Path(os.path.expanduser(config_dir))
+        self.global_defaults_path = self.config_dir / "GLOBAL_DEFAULTS.yml"
         self._ensure_config_dir()
 
     def _ensure_config_dir(self) -> None:
         """Create config directory if it doesn't exist"""
-        os.makedirs(self.config_dir, exist_ok=True)
+        self.config_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_aliases(self) -> Dict[str, str]:
         """Read aliases from aliases.txt file"""
-        aliases_path = os.path.join(self.config_dir, "aliases.txt")
-        if not os.path.exists(aliases_path):
+        aliases_path = self.config_dir / "aliases.txt"
+        if not aliases_path.is_file():
             return {}
 
         aliases = {}
@@ -53,7 +54,9 @@ class ConfigManager:
         config_to_aliases = self._get_config_to_aliases()
 
         # List all config files with their aliases
-        for config_file in Path(self.config_dir).glob("*.yml"):
+        for config_file in self.config_dir.glob("*.yml"):
+            if config_file.name == "GLOBAL_DEFAULTS.yml":
+                continue
             config_name = config_file.stem
             alias_list = config_to_aliases.get(config_name, [])
             alias_str = f" (aliases: {', '.join(alias_list)})" if alias_list else ""
@@ -68,9 +71,9 @@ class ConfigManager:
         if config_name in aliases:
             config_name = aliases[config_name]
 
-        config_path = os.path.join(self.config_dir, f"{config_name}.yml")
+        config_path = self.config_dir / f"{config_name}.yml"
 
-        if not os.path.exists(config_path):
+        if not config_path.is_file():
             print(f"Error: No configuration found for '{config_name}'")
             print(f"Expected to find config file at: {config_path}")
             sys.exit(1)
@@ -126,57 +129,58 @@ class ConfigManager:
             })
 
         # Write to temp file
-        tmp_file = tempfile.NamedTemporaryFile(mode="w", delete=False)
-        import json
-        json.dump(settings, tmp_file)
-        tmp_file.close()
-        return tmp_file.name
+        tmp_file_path = None
+        try:
+            tmp_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json")
+            tmp_file_path = tmp_file.name
+            import json
+            json.dump(settings, tmp_file)
+            tmp_file.close()
+            return tmp_file_path
+        except Exception as e:
+            print(f"Error creating model settings temp file: {e}")
+            if tmp_file_path and os.path.exists(tmp_file_path):
+                os.unlink(tmp_file_path)
+            sys.exit(1)
 
-    def _get_api_key(self, config_path: str) -> str:
-        """Extract API key from config file or environment variable."""
-        with open(config_path, 'r') as f:
-            for line in f:
-                if line.strip().startswith('api-key-env:'):
-                    env_var_name = line.split(':', 1)[1].strip()
-                    api_key = os.environ.get(env_var_name)
-                    if api_key:
-                        return api_key
-                    else:
-                        print(f"Error: Environment variable '{env_var_name}' not set.")
-                        sys.exit(1)
-        return None
 
-    def _get_api_key_provider(self, config_path: str) -> str:
-        """Extract API key from config file or environment variable."""
-        with open(config_path, 'r') as f:
-            for line in f:
-                if line.strip().startswith('api-key-provider:'):
-                    provider_name = line.split(':', 1)[1].strip()
-                    return provider_name
-        return None
+    def _get_api_key_info(self, config_path: Path) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Extract API key env var name and provider from config file.
+        Returns (api_key_env_var, api_key_provider). Provider defaults to 'openai'.
+        """
+        api_key_env_var = None
+        api_key_provider = "openai"
 
-    def create_temp_config_without_api_key(self, config_path: str, api_key: str) -> str:
-        """Create a temporary config file without the api-key-env line."""
-        temp_config = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yml")
-        with open(config_path, "r") as original_config:
-            for line in original_config:
-                if not line.strip().startswith("api-key-env:") and not line.strip().startswith("api-key-provider"):
-                    temp_config.write(line)
-        temp_config.close()
-        return temp_config.name
+        if not config_path.is_file():
+            return None, api_key_provider
 
-    def run_with_config(self, alias: str, extra_args: list) -> None:
+        try:
+            with open(config_path, 'r') as f:
+                for line in f:
+                    stripped_line = line.strip()
+                    if stripped_line.startswith('api-key-env:'):
+                        api_key_env_var = stripped_line.split(':', 1)[1].strip()
+                    elif stripped_line.startswith('api-key-provider:'):
+                        api_key_provider = stripped_line.split(':', 1)[1].strip()
+        except Exception as e:
+            print(f"Warning: Could not read API key info from {config_path}: {e}")
+
+        return api_key_env_var, api_key_provider
+
+
+    def run_with_config(self, alias: str, extra_args: List[str]) -> None:
         """Run aider with the specified configuration file or alias"""
-        # First check if it's an alias
         aliases = self._get_aliases()
+        config_name = alias
         if alias in aliases:
-            alias = aliases[alias]
+            config_name = aliases[alias]
 
-        config_path = os.path.join(self.config_dir, f"{alias}.yml")
+        specific_config_path = self.config_dir / f"{config_name}.yml"
 
-        if not os.path.exists(config_path):
-            print(f"Error: No configuration found for alias '{alias}'")
-            print(f"Expected to find config file at: {config_path}")
+        if not specific_config_path.is_file():
+            print(f"Error: No configuration found for '{config_name}'")
+            print(f"Expected to find config file at: {specific_config_path}")
             sys.exit(1)
 
         # Handle --only switch
@@ -191,38 +195,62 @@ class ConfigManager:
                 print("Error: --only requires a provider argument")
                 sys.exit(1)
 
-        # Generate model settings if needed
-        model_settings_file = self._get_model_settings(config_path, only_provider)
+        model_settings_file = None
+        temp_config_path = None
+        try:
+            model_settings_file = self._get_model_settings(str(specific_config_path), only_provider)
 
-        api_key = self._get_api_key(config_path)
-        api_key_provider = self._get_api_key_provider(config_path) or "openai"
+            api_key_env_var, api_key_provider = self._get_api_key_info(specific_config_path)
+            api_key = None
+        if api_key_env_var:
+            api_key = os.environ.get(api_key_env_var)
+            if not api_key:
+                print(f"Error: Environment variable '{api_key_env_var}' specified in config but not set.")
+                sys.exit(1)
+
+        global_defaults_exist = self.global_defaults_path.is_file()
+        needs_temp_config = global_defaults_exist or (api_key is not None)
+
+        temp_config_path = None
+        effective_config_path = str(specific_config_path)
+
+        if needs_temp_config:
+            try:
+                temp_config_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yml", encoding='utf-8')
+                temp_config_path = temp_config_file.name
+
+                if global_defaults_exist:
+                    if os.environ.get("CA_DEBUG") == "true":
+                        print(f"Prepending global defaults from {self.global_defaults_path}")
+                    with open(self.global_defaults_path, "r") as f_global:
+                        shutil.copyfileobj(f_global, temp_config_file)
+                    temp_config_file.write("\n")
+
+                if os.environ.get("CA_DEBUG") == "true":
+                    print(f"Appending specific config from {specific_config_path} (filtering API keys)")
+                with open(specific_config_path, "r") as f_specific:
+                    for line in f_specific:
+                        stripped_line = line.strip()
+                        if not stripped_line.startswith("api-key-env:") and not stripped_line.startswith("api-key-provider:"):
+                            temp_config_file.write(line)
+
+                temp_config_file.close()
+                effective_config_path = temp_config_path
+                if os.environ.get("CA_DEBUG") == "true":
+                    print(f"Using combined temporary config path: {effective_config_path}")
+
+            except Exception as e:
+                print(f"Error creating temporary config file: {e}")
+                # Cleanup is handled in finally block
+                sys.exit(1)
+
+        cmd = ["aider", "--config", effective_config_path]
+
         if api_key:
-            temp_config_path = self.create_temp_config_without_api_key(config_path, api_key)
-            if os.environ.get("CA_DEBUG") == "true":
-                print(f"using tmp config path: {temp_config_path}")
-            cmd = ["aider", "--config", temp_config_path, "--api-key", f"{api_key_provider}={api_key}"]
-        else:
-            cmd = ["aider", "--config", config_path]
+            cmd.extend(["--api-key", f"{api_key_provider}={api_key}"])
 
         if model_settings_file:
             cmd.extend(["--model-settings-file", model_settings_file])
-
-        # Add global default options from ~/.config/config-aider/global_aider_args.txt
-        global_args_path = Path(os.path.expanduser("~/.config/config-aider/global_aider_args.txt"))
-        if global_args_path.is_file():
-            global_args = []
-            with open(global_args_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#'):
-                        try:
-                            args_from_line = shlex.split(line)
-                            global_args.extend(args_from_line)
-                        except ValueError as e:
-                            print(f"Warning: Skipping invalid line in {global_args_path}: {line} ({e})")
-            if global_args:
-                print(f"Adding global aider args from {global_args_path}: {shlex.join(global_args)}")
-                cmd.extend(global_args)
 
         standard_args_file = Path(".aider-standard-repo-args")
         if standard_args_file.is_file():
@@ -242,18 +270,34 @@ class ConfigManager:
                 print(f"Adding standard repo args from {standard_args_file}: {shlex.join(standard_args)}")
                 cmd.extend(standard_args)
 
-        cmd.extend(extra_args)
+            cmd.extend(extra_args)
 
-        try:
-            # Use os.execvpe to replace the current process with aider
+            if os.environ.get("CA_DEBUG") == "true":
+                print(f"Executing command: {shlex.join(cmd)}")
             os.execvpe(cmd[0], cmd, os.environ)
+
         except FileNotFoundError:
             print(f"Error: Command '{cmd[0]}' not found")
+            # Cleanup is handled in finally block
             sys.exit(1)
-        # We shouldn't reach here because of execvpe, but just in case:
         except KeyboardInterrupt:
             print("\nOperation cancelled by user")
+            # Cleanup is handled in finally block
             sys.exit(1)
+        except Exception as e:
+            print(f"An unexpected error occurred before executing aider: {e}")
+            # Cleanup is handled in finally block
+            sys.exit(1)
+        finally:
+            # Ensure temporary files are cleaned up
+            if temp_config_path and os.path.exists(temp_config_path):
+                if os.environ.get("CA_DEBUG") == "true":
+                    print(f"Cleaning up temporary config file: {temp_config_path}")
+                os.unlink(temp_config_path)
+            if model_settings_file and os.path.exists(model_settings_file):
+                if os.environ.get("CA_DEBUG") == "true":
+                    print(f"Cleaning up temporary model settings file: {model_settings_file}")
+                os.unlink(model_settings_file)
 
 
 def _get_sample_config_dir() -> str:
@@ -279,17 +323,17 @@ def create_example_configs(config_manager: ConfigManager) -> None:
         sys.exit(1)
 
     # Copy all .yml files from sample_config
-    for config_file in Path(sample_dir).glob("*.yml"):
-        dest_path = os.path.join(config_manager.config_dir, config_file.name)
-        shutil.copy(config_file, dest_path)
+    for config_file_path in Path(sample_dir).glob("*.yml"):
+        dest_path = config_manager.config_dir / config_file_path.name
+        shutil.copy(config_file_path, dest_path)
         print(f"Created {dest_path}")
 
     # Copy aliases.txt if it exists
-    aliases_src = os.path.join(sample_dir, "aliases.txt")
-    aliases_dest = os.path.join(config_manager.config_dir, "aliases.txt")
-    if os.path.exists(aliases_src):
-        shutil.copy(aliases_src, aliases_dest)
-        print(f"Created {aliases_dest}")
+    aliases_src_path = Path(sample_dir) / "aliases.txt"
+    aliases_dest_path = config_manager.config_dir / "aliases.txt"
+    if aliases_src_path.exists():
+        shutil.copy(aliases_src_path, aliases_dest_path)
+        print(f"Created {aliases_dest_path}")
 
 
 def main():
@@ -364,7 +408,7 @@ Examples:
 
     if args.alias:
         alias, target = args.alias
-        aliases_path = os.path.join(config_manager.config_dir, "aliases.txt")
+        aliases_path = config_manager.config_dir / "aliases.txt"
 
         # Check if alias already exists
         existing_aliases = config_manager._get_aliases()
@@ -373,8 +417,8 @@ Examples:
             sys.exit(1)
 
         # Check if target config exists
-        target_path = os.path.join(config_manager.config_dir, f"{target}.yml")
-        if not os.path.exists(target_path):
+        target_path = config_manager.config_dir / f"{target}.yml"
+        if not target_path.is_file():
             print(f"Error: Target configuration '{target}' does not exist")
             sys.exit(1)
 
