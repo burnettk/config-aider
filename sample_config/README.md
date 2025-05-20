@@ -13,8 +13,8 @@ These configurations are automatically copied to `~/.config/config-aider/` when 
 
 1. Use them as-is with their default aliases:
 
-   - `g` for Gemini Experimental
-   - `c3` for Claude 3 Sonnet
+   - `g` for Gemini
+   - `clause` for Claude 3 Sonnet
    - `d` for Deepseek Chat V3
 
 2. Copy and modify them to create your own configurations
