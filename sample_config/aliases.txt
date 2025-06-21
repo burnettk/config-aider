@@ -1,8 +1,8 @@
 g:gemini-2.5-pro-preview-06-05
 g2:gemini-2.5-pro-preview-03-25
+gpro:gemini-2.5-pro
 df:openrouter-deepseek-deepseek-chat-free
 sota: gemini-2.5-pro-preview-03-25
-gpro:gemini-2.5-pro-preview-03-25
 r1:openrouter-microsoft-mai-ds-r1-free
 gl:gemini-2.5-flash-preview-05-20
 d:deepseek-deepseek-chat
