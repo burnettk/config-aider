@@ -1,2 +1,3 @@
 model: bedrock/us.anthropic.claude-3-5-sonnet-20241022-v2:0
 weak-model: gemini/gemini-2.0-flash-exp
+show-model-warnings: false
