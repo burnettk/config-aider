@@ -1,0 +1,2 @@
+model: openrouter/openrouter/polaris-alpha
+weak-model: gemini/gemini-2.0-flash-exp
