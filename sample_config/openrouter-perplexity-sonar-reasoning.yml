@@ -1,4 +1,3 @@
 architect: true
 model: openrouter/perplexity/sonar-reasoning
 editor-model: openrouter/deepseek/deepseek-chat
-weak-model: openrouter/anthropic/claude-3-5-haiku

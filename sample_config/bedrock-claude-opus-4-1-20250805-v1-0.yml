@@ -1,3 +1,2 @@
 model: bedrock/us.anthropic.claude-opus-4-1-20250805-v1:0
-weak-model: gemini/gemini-2.0-flash-exp
 show-model-warnings: false

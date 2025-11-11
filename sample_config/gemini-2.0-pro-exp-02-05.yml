@@ -1,3 +1,2 @@
 model: gemini/gemini-2.0-pro-exp-02-05
-weak-model: gemini/gemini-2.0-flash
 show-model-warnings: false
