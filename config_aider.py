@@ -257,7 +257,7 @@ class ConfigManager:
 
     def _build_aider_command(self, effective_config_path: str, api_key_provider: Optional[str], api_key: Optional[str], model_settings_file: Optional[str], standard_args: List[str], extra_args: List[str]) -> List[str]:
         """Builds the command list to execute aider."""
-        cmd = ["aider", "--config", effective_config_path]
+        cmd = ["aider-ce", "--config", effective_config_path]
         if api_key:
             cmd.extend(["--api-key", f"{api_key_provider}={api_key}"])
         if model_settings_file:
