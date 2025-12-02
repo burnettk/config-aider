@@ -143,21 +143,13 @@ class ConfigManager:
             # Convert to global inference profile format
             arn = f"arn:aws:bedrock:{bedrock_region}:{bedrock_account}:inference-profile/global.{model_id}"
         
-        # Determine weak/editor model - use Haiku for all models
-        weak_model = "bedrock/converse/global.anthropic.claude-haiku-4-5-20251001-v1:0"
-        
         profile = {
             "name": model_name,
-            "edit_format": "diff",
-            "use_repo_map": True,
             "extra_params": {
                 "model_id": arn,
                 "max_tokens": 64000
             },
             "cache_control": True,
-            "weak_model_name": weak_model,
-            "editor_model_name": weak_model,
-            "editor_edit_format": "editor-diff",
             "accepts_settings": ["thinking_tokens"]
         }
         
