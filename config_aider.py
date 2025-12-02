@@ -9,6 +9,7 @@ import shlex
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import tempfile
+import json
 
 
 class ConfigManager:
@@ -88,6 +89,113 @@ class ConfigManager:
         with open(config_path) as f:
             print(f.read())
 
+    def _substitute_bedrock_arn_placeholders(self, content: str) -> str:
+        """Substitute <region> and <account> placeholders in Bedrock ARNs"""
+        bedrock_region = os.environ.get("BEDROCK_REGION")
+        bedrock_account = os.environ.get("BEDROCK_ACCOUNT")
+        
+        if "<region>" in content or "<account>" in content:
+            if not bedrock_region:
+                print("Error: Configuration contains <region> placeholder but BEDROCK_REGION environment variable is not set")
+                sys.exit(1)
+            if not bedrock_account:
+                print("Error: Configuration contains <account> placeholder but BEDROCK_ACCOUNT environment variable is not set")
+                sys.exit(1)
+            
+            content = content.replace("<region>", bedrock_region)
+            content = content.replace("<account>", bedrock_account)
+            
+            if os.environ.get("CA_DEBUG") == "true":
+                print(f"Substituted Bedrock ARN placeholders: region={bedrock_region}, account={bedrock_account}")
+        
+        return content
+
+    def _extract_bedrock_model_name(self, config_path: Path) -> Optional[str]:
+        """Extract the Bedrock model name from the config file"""
+        try:
+            with open(config_path, 'r') as f:
+                for line in f:
+                    stripped_line = line.strip()
+                    if stripped_line.startswith('model:'):
+                        model_value = stripped_line.split(':', 1)[1].strip()
+                        # Remove quotes if present
+                        if model_value.startswith(('"', "'")) and model_value.endswith(('"', "'")):
+                            model_value = model_value[1:-1]
+                        # Check if it's a Bedrock converse model
+                        if model_value.startswith('bedrock/converse/'):
+                            return model_value
+        except Exception as e:
+            if os.environ.get("CA_DEBUG") == "true":
+                print(f"Warning: Could not extract model name from {config_path}: {e}")
+        return None
+
+    def _create_bedrock_model_profile(self, model_name: str, bedrock_region: str, bedrock_account: str) -> dict:
+        """Create a single Bedrock model profile with the appropriate settings"""
+        # Extract the model ID from the full model name
+        # e.g., "bedrock/converse/anthropic.claude-sonnet-4-5-20250929-v1:0" -> "anthropic.claude-sonnet-4-5-20250929-v1:0"
+        model_id = model_name.replace('bedrock/converse/', '')
+        
+        # Determine if this is a global inference profile or a direct model
+        if model_id.startswith('global.'):
+            # It's already a global inference profile
+            arn = f"arn:aws:bedrock:{bedrock_region}:{bedrock_account}:inference-profile/{model_id}"
+        else:
+            # Convert to global inference profile format
+            arn = f"arn:aws:bedrock:{bedrock_region}:{bedrock_account}:inference-profile/global.{model_id}"
+        
+        # Determine weak/editor model - use Haiku for all models
+        weak_model = "bedrock/converse/global.anthropic.claude-haiku-4-5-20251001-v1:0"
+        
+        profile = {
+            "name": model_name,
+            "edit_format": "diff",
+            "use_repo_map": True,
+            "extra_params": {
+                "model_id": arn,
+                "max_tokens": 64000
+            },
+            "cache_control": True,
+            "weak_model_name": weak_model,
+            "editor_model_name": weak_model,
+            "editor_edit_format": "editor-diff",
+            "accepts_settings": ["thinking_tokens"]
+        }
+        
+        return profile
+
+    def _generate_bedrock_inference_profiles(self, config_path: Path) -> str:
+        """Generate Bedrock inference profiles JSON with substituted ARN values"""
+        bedrock_region = os.environ.get("BEDROCK_REGION")
+        bedrock_account = os.environ.get("BEDROCK_ACCOUNT")
+        
+        if not bedrock_region or not bedrock_account:
+            print("Error: BEDROCK_REGION and BEDROCK_ACCOUNT environment variables must be set for Bedrock inference profiles")
+            sys.exit(1)
+        
+        # Extract the model name from the config
+        model_name = self._extract_bedrock_model_name(config_path)
+        if not model_name:
+            print(f"Error: Could not extract Bedrock model name from config file {config_path}")
+            sys.exit(1)
+        
+        # Create a single profile for this model
+        profile = self._create_bedrock_model_profile(model_name, bedrock_region, bedrock_account)
+        profiles = [profile]
+        
+        try:
+            tmp_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json")
+            tmp_file_path = tmp_file.name
+            json.dump(profiles, tmp_file, indent=2)
+            tmp_file.close()
+            
+            if os.environ.get("CA_DEBUG") == "true":
+                print(f"Generated Bedrock inference profile for {model_name} at {tmp_file_path}")
+            
+            return tmp_file_path
+        except Exception as e:
+            print(f"Error creating Bedrock inference profiles file: {e}")
+            sys.exit(1)
+
     def _get_model_settings(self, config_path: str, only_provider: str = None) -> str:
         """Generate model settings JSON for OpenRouter models"""
         if not only_provider:
@@ -133,7 +241,6 @@ class ConfigManager:
         try:
             tmp_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json")
             tmp_file_path = tmp_file.name
-            import json
             json.dump(settings, tmp_file)
             tmp_file.close()
             return tmp_file_path
@@ -205,7 +312,16 @@ class ConfigManager:
                 sys.exit(1)
         return only_provider, extra_args
 
-    def _create_temporary_config(self, specific_config_path: Path, global_defaults_exist: bool) -> Optional[str]:
+    def _check_for_bedrock_inference_profiles(self, config_path: Path) -> bool:
+        """Check if config references .bedrock-inference-profiles.json"""
+        try:
+            with open(config_path, 'r') as f:
+                content = f.read()
+                return '.bedrock-inference-profiles.json' in content
+        except Exception:
+            return False
+
+    def _create_temporary_config(self, specific_config_path: Path, global_defaults_exist: bool, bedrock_profiles_path: Optional[str] = None) -> Optional[str]:
         """Combines global defaults and specific config into a temporary file if needed."""
         temp_config_path = None
         try:
@@ -216,16 +332,25 @@ class ConfigManager:
                 if os.environ.get("CA_DEBUG") == "true":
                     print(f"Prepending global defaults from {self.global_defaults_path}")
                 with open(self.global_defaults_path, "r") as f_global:
-                    shutil.copyfileobj(f_global, temp_config_file)
+                    global_content = f_global.read()
+                    global_content = self._substitute_bedrock_arn_placeholders(global_content)
+                    temp_config_file.write(global_content)
                 temp_config_file.write("\n")
 
             if os.environ.get("CA_DEBUG") == "true":
                 print(f"Appending specific config from {specific_config_path} (filtering API keys)")
             with open(specific_config_path, "r") as f_specific:
+                specific_content = []
                 for line in f_specific:
                     stripped_line = line.strip()
                     if not stripped_line.startswith("api-key-env:") and not stripped_line.startswith("api-key-provider:"):
-                        temp_config_file.write(line)
+                        # Replace .bedrock-inference-profiles.json reference with generated file
+                        if bedrock_profiles_path and '.bedrock-inference-profiles.json' in line:
+                            line = line.replace('.bedrock-inference-profiles.json', bedrock_profiles_path)
+                        specific_content.append(line)
+                specific_content_str = ''.join(specific_content)
+                specific_content_str = self._substitute_bedrock_arn_placeholders(specific_content_str)
+                temp_config_file.write(specific_content_str)
 
             temp_config_file.close()
             if os.environ.get("CA_DEBUG") == "true":
@@ -283,20 +408,26 @@ class ConfigManager:
 
         model_settings_file = None
         temp_config_path = None
+        bedrock_profiles_path = None
         cmd = [] # Initialize cmd here to ensure it's defined for the finally block if errors occur early
 
         try:
+            # Check if config needs Bedrock inference profiles
+            needs_bedrock_profiles = self._check_for_bedrock_inference_profiles(specific_config_path)
+            if needs_bedrock_profiles:
+                bedrock_profiles_path = self._generate_bedrock_inference_profiles(specific_config_path)
+
             model_settings_file = self._get_model_settings(str(specific_config_path), only_provider)
             api_key_env_var, api_key_provider = self._get_api_key_info(specific_config_path)
             api_key = self._get_api_key_value(api_key_env_var)
 
             global_defaults_exist = self.global_defaults_path.is_file()
-            needs_temp_config = global_defaults_exist or (api_key is not None)
+            needs_temp_config = global_defaults_exist or (api_key is not None) or needs_bedrock_profiles
             effective_config_path = str(specific_config_path)
 
             if needs_temp_config:
                 # _create_temporary_config handles its own errors and cleanup on failure
-                temp_config_path = self._create_temporary_config(specific_config_path, global_defaults_exist)
+                temp_config_path = self._create_temporary_config(specific_config_path, global_defaults_exist, bedrock_profiles_path)
                 effective_config_path = temp_config_path
 
             standard_args = self._read_standard_repo_args()
@@ -331,6 +462,10 @@ class ConfigManager:
                 if os.environ.get("CA_DEBUG") == "true":
                     print(f"Cleaning up temporary model settings file: {model_settings_file}")
                 os.unlink(model_settings_file)
+            if bedrock_profiles_path and os.path.exists(bedrock_profiles_path):
+                if os.environ.get("CA_DEBUG") == "true":
+                    print(f"Cleaning up temporary Bedrock profiles file: {bedrock_profiles_path}")
+                os.unlink(bedrock_profiles_path)
 
 
 def _get_sample_config_dir() -> str:

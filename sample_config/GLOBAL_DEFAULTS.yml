@@ -8,3 +8,9 @@ vim: true
 # weak-model: openrouter/kwaipilot/kat-coder-pro:free
 # weak-model: openrouter/minimax/minimax-m2:free
 weak-model: openrouter/nvidia/nemotron-nano-12b-v2-vl:free
+
+# Bedrock ARN substitution
+# Set these environment variables to use Bedrock inference profiles:
+# export BEDROCK_REGION=us-east-1
+# export BEDROCK_ACCOUNT=123456789012
+# Model settings are generated dynamically based on the model specified in your config
