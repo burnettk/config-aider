@@ -2,13 +2,15 @@ auto-commits: false
 check-update: false
 detect-urls: false
 show-release-notes: false
-vim: true
+
+# not compatible with tui
+# vim: true
+#
 # weak-model: openrouter/openai/gpt-oss-safeguard-20b ($0.30/M output)
 # weak-model: openrouter/moonshotai/kimi-linear-48b-a3b-instruct ($0.60/M output)
 # weak-model: openrouter/kwaipilot/kat-coder-pro:free
 # weak-model: openrouter/minimax/minimax-m2:free
 weak-model: openrouter/nvidia/nemotron-nano-12b-v2-vl:free
-
 # Bedrock ARN substitution
 # Set these environment variables to use Bedrock inference profiles:
 # export BEDROCK_REGION=us-east-1
