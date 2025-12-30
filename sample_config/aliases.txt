@@ -1,4 +1,4 @@
-g:gemini-2.5-pro-preview-06-05
+g:gemini-3-pro-preview
 os:bedrock-openai.gpt-oss-120b-1-0
 s:bedrock-claude-sonnet-4-5-20250929-v1-0
 h:bedrock-claude-haiku-4-5-20251001-v1-0
@@ -8,13 +8,10 @@ s5:bedrock-claude-3-5-sonnet-20241022-v2
 o:bedrock-claude-opus-4-1-20250805-v1-0
 o45:bedrock-claude-opus-4-5-20251101-v1-0
 o40:bedrock-claude-opus-4-20250514-v1
-g2:gemini-2.5-pro-preview-03-25
+gp:gemini-3-pro-preview
 gpro:gemini-2.5-pro
 df:openrouter-deepseek-deepseek-chat-free
-sota: gemini-2.5-pro-preview-03-25
 r1:openrouter-microsoft-mai-ds-r1-free
-gl:gemini-2.5-flash-preview-05-20
 d:deepseek-deepseek-chat
 clause:anthropic-claude-3-7-sonnet-20250219
-g20:gemini-2.0-pro-exp-02-05
 q:qwen3-coder-free
